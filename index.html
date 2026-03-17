@@ -2,10 +2,31 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <link rel="shortcut icon" href="typex_v2_logo.png" type="image/x-icon" />
-    <title>TYPEX</title>
+    <title>TYPEX — Typing Speed Terminal</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#05080c" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="TYPEX" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <meta
+      name="description"
+      content="Neo-noir terminal typing speed test. Train fast. Type faster."
+    />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;700;800&family=VT323&display=swap"
       rel="stylesheet"
@@ -18,6 +39,7 @@
     <canvas id="bgCanvas"></canvas>
     <div class="scanline"></div>
     <div id="particleBurst"></div>
+
     <div id="loader" class="loader-overlay">
       <div class="loader-content">
         <div class="loader-logo">TX</div>
@@ -27,12 +49,13 @@
         <div class="loader-text">INITIALIZING TERMINAL...</div>
       </div>
     </div>
+
     <div class="app">
       <header class="header">
         <div class="logo">
           <span class="logo-mark">TX</span>
           <span class="logo-name">TYPEX</span>
-          <span class="logo-version">v2.0</span>
+          <span class="logo-version">v2.1</span>
         </div>
         <nav class="nav">
           <button class="nav-btn active" data-tab="test">
@@ -46,6 +69,20 @@
           </button>
         </nav>
         <div class="header-actions">
+          <button class="icon-btn" id="focusBtn" title="Focus mode (F)">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"
+              />
+            </svg>
+          </button>
           <button class="icon-btn" id="themeToggle" title="Toggle theme">
             <svg
               width="16"
@@ -64,6 +101,7 @@
         </div>
       </header>
 
+      <!-- ── TEST TAB ── -->
       <section class="tab-content active" id="tab-test">
         <div class="settings-row">
           <div class="setting-group">
@@ -133,6 +171,7 @@
           </div>
         </div>
 
+        <!-- HUD -->
         <div class="hud">
           <div class="hud-item">
             <div class="hud-val" id="wpmDisplay">—</div>
@@ -168,7 +207,9 @@
           </div>
         </div>
 
+        <!-- Arena -->
         <div class="arena" id="arena">
+          <div class="arena-corner"></div>
           <div class="arena-topbar">
             <span class="arena-mode-tag" id="arenaModeTag">WORDS · EASY</span>
             <span class="arena-hint" id="arenaHint">start typing to begin</span>
@@ -178,6 +219,13 @@
             <span class="prompt-char">›</span>
             <div class="current-word-echo" id="currentWordEcho"></div>
           </div>
+
+          <!-- Live WPM Graph (hidden until test starts) -->
+          <div class="live-graph-wrap hidden" id="liveGraphWrap">
+            <div class="live-graph-label">LIVE WPM</div>
+            <canvas id="liveWpmCanvas" height="48"></canvas>
+          </div>
+
           <div class="progress-wrap">
             <div class="progress-track">
               <div class="progress-fill" id="progressBar"></div>
@@ -185,6 +233,19 @@
             <span class="progress-pct" id="progressPct">0%</span>
           </div>
         </div>
+
+        <!-- Mobile hidden input (captures keyboard on mobile) -->
+        <input
+          type="text"
+          id="mobileInput"
+          class="mobile-input"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          aria-label="Typing input"
+          inputmode="text"
+        />
 
         <div class="action-row">
           <button class="btn-ghost" id="resetBtn">
@@ -243,6 +304,7 @@
         </div>
       </section>
 
+      <!-- ── TRAIN TAB ── -->
       <section class="tab-content" id="tab-train">
         <div class="section-header">
           <h2 class="section-title">TRAINING MODULES</h2>
@@ -334,6 +396,7 @@
         </div>
       </section>
 
+      <!-- ── STATS TAB ── -->
       <section class="tab-content" id="tab-stats">
         <div class="stats-toprow">
           <h2 class="section-title">PERFORMANCE LOG</h2>
@@ -410,7 +473,179 @@
       </a>
     </footer>
 
+    <!-- ── FOCUS MODE OVERLAY ── -->
+    <div class="focus-overlay hidden" id="focusOverlay">
+      <button class="focus-exit" id="focusExitBtn" title="Exit focus (ESC)">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path
+            d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"
+          />
+        </svg>
+        ESC
+      </button>
+
+      <div class="focus-hud">
+        <div class="focus-hud-item">
+          <div class="focus-hud-val" id="focusWpm">—</div>
+          <div class="focus-hud-label">WPM</div>
+        </div>
+        <div class="focus-hud-item">
+          <div class="focus-hud-val" id="focusAcc">—</div>
+          <div class="focus-hud-label">ACC</div>
+        </div>
+        <div class="focus-hud-item focus-hud-timer">
+          <div class="focus-timer-wrap">
+            <svg class="focus-timer-ring" viewBox="0 0 44 44">
+              <circle class="focus-ring-bg" cx="22" cy="22" r="18" />
+              <circle
+                class="focus-ring-fill"
+                id="focusTimerRing"
+                cx="22"
+                cy="22"
+                r="18"
+              />
+            </svg>
+            <span class="focus-timer-num" id="focusSec">—</span>
+          </div>
+          <div class="focus-hud-label">SEC</div>
+        </div>
+        <div class="focus-hud-item">
+          <div class="focus-hud-val" id="focusErr">0</div>
+          <div class="focus-hud-label">ERR</div>
+        </div>
+        <div class="focus-hud-item">
+          <div class="focus-hud-val" id="focusStreak">0</div>
+          <div class="focus-hud-label">STREAK</div>
+        </div>
+      </div>
+
+      <div class="focus-arena" id="focusArena">
+        <div class="focus-words" id="focusWords"></div>
+        <div class="focus-echo-row">
+          <span class="focus-prompt">›</span>
+          <div class="focus-echo" id="focusEcho"></div>
+        </div>
+        <div class="focus-graph-wrap hidden" id="focusGraphWrap">
+          <canvas id="focusGraphCanvas" height="40"></canvas>
+        </div>
+        <div class="focus-progress-track">
+          <div class="focus-progress-fill" id="focusProgressBar"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PWA Install Banner -->
+    <div class="install-banner hidden" id="installBanner">
+      <div class="install-banner-icon">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+      </div>
+      <div class="install-banner-text">
+        <div class="install-banner-title">INSTALL TYPEX</div>
+        <div class="install-banner-sub">Play offline · No browser needed</div>
+      </div>
+      <button class="install-banner-btn" id="installAccept">INSTALL</button>
+      <button
+        class="install-banner-dismiss"
+        id="installDismiss"
+        title="Dismiss"
+      >
+        ✕
+      </button>
+    </div>
+
+    <!-- Offline indicator -->
+    <div class="offline-pill hidden" id="offlinePill">
+      <span class="offline-dot"></span>
+      OFFLINE MODE
+    </div>
+
     <div class="toast" id="toast"></div>
     <script src="script.js"></script>
+    <script>
+      /* ── Service Worker Registration ── */
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("/sw.js")
+            .then((reg) => {
+              console.log("[TYPEX] SW registered:", reg.scope);
+              // Notify SW to cache assets
+              if (reg.active) reg.active.postMessage("CACHE_URLS");
+            })
+            .catch((err) => console.warn("[TYPEX] SW failed:", err));
+        });
+      }
+
+      /* ── PWA Install Prompt ── */
+      let deferredPrompt = null;
+      const banner = document.getElementById("installBanner");
+      const offline = document.getElementById("offlinePill");
+
+      window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        // Show banner after 3 seconds (don't interrupt loading)
+        setTimeout(() => {
+          if (!localStorage.getItem("typex_pwa_dismissed")) {
+            banner.classList.remove("hidden");
+          }
+        }, 3000);
+      });
+
+      document
+        .getElementById("installAccept")
+        .addEventListener("click", async () => {
+          banner.classList.add("hidden");
+          if (!deferredPrompt) return;
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === "accepted") {
+            console.log("[TYPEX] PWA installed");
+          }
+          deferredPrompt = null;
+        });
+
+      document
+        .getElementById("installDismiss")
+        .addEventListener("click", () => {
+          banner.classList.add("hidden");
+          localStorage.setItem("typex_pwa_dismissed", "1");
+        });
+
+      window.addEventListener("appinstalled", () => {
+        banner.classList.add("hidden");
+        deferredPrompt = null;
+      });
+
+      /* ── Offline / Online indicator ── */
+      function updateOnlineStatus() {
+        if (!navigator.onLine) {
+          offline.classList.remove("hidden");
+        } else {
+          offline.classList.add("hidden");
+        }
+      }
+      window.addEventListener("online", updateOnlineStatus);
+      window.addEventListener("offline", updateOnlineStatus);
+      updateOnlineStatus();
+    </script>
   </body>
 </html>
