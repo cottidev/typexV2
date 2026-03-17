@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="shortcut icon" href="typex_v2_logo.png" type="image/x-icon" />
+    <title>TYPEX</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;700;800&family=VT323&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="bg-grid"></div>
+    <div class="bg-vignette"></div>
+    <canvas id="bgCanvas"></canvas>
+    <div class="scanline"></div>
+    <div id="particleBurst"></div>
+
+    <div class="app">
+      <header class="header">
+        <div class="logo">
+          <span class="logo-mark">TX</span>
+          <span class="logo-name">TYPEX</span>
+          <span class="logo-version">v2.0</span>
+        </div>
+        <nav class="nav">
+          <button class="nav-btn active" data-tab="test">
+            <span class="nav-icon">◈</span>TEST
+          </button>
+          <button class="nav-btn" data-tab="train">
+            <span class="nav-icon">◉</span>TRAIN
+          </button>
+          <button class="nav-btn" data-tab="stats">
+            <span class="nav-icon">◎</span>STATS
+          </button>
+        </nav>
+        <div class="header-actions">
+          <button class="icon-btn" id="themeToggle" title="Toggle theme">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="5" />
+              <path
+                d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+              />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <section class="tab-content active" id="tab-test">
+        <div class="settings-row">
+          <div class="setting-group">
+            <label class="setting-label">TIME</label>
+            <div class="chip-group" id="durationGroup">
+              <button class="chip" data-val="15">15s</button>
+              <button class="chip active" data-val="30">30s</button>
+              <button class="chip" data-val="60">60s</button>
+              <button class="chip" data-val="120">120s</button>
+            </div>
+          </div>
+          <div class="setting-divider"></div>
+          <div class="setting-group">
+            <label class="setting-label">MODE</label>
+            <div class="chip-group" id="modeGroup">
+              <button class="chip active" data-val="words">WORDS</button>
+              <button class="chip" data-val="sentences">QUOTES</button>
+              <button class="chip" data-val="numbers">NUMS</button>
+              <button class="chip" data-val="code">CODE</button>
+              <button class="chip chip-special" data-val="custom">
+                CUSTOM ✦
+              </button>
+            </div>
+          </div>
+          <div class="setting-divider"></div>
+          <div class="setting-group">
+            <label class="setting-label">LEVEL</label>
+            <div class="chip-group" id="diffGroup">
+              <button class="chip active" data-val="easy">EASY</button>
+              <button class="chip" data-val="medium">MED</button>
+              <button class="chip" data-val="hard">HARD</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="custom-panel hidden" id="customPanel">
+          <div class="custom-panel-header">
+            <span class="custom-panel-title">// CUSTOM TEXT INPUT</span>
+            <span class="custom-char-count" id="customCharCount">0 chars</span>
+          </div>
+          <textarea
+            id="customTextInput"
+            class="custom-textarea"
+            placeholder="Paste any text here — articles, code, speeches, song lyrics, scripts...&#10;&#10;Minimum 20 characters to start."
+            spellcheck="false"
+          ></textarea>
+          <div class="custom-footer">
+            <div class="custom-presets">
+              <span class="preset-label">QUICK LOAD:</span>
+              <button class="preset-btn" data-preset="lorem">
+                Lorem Ipsum
+              </button>
+              <button class="preset-btn" data-preset="pangrams">
+                Pangrams
+              </button>
+              <button class="preset-btn" data-preset="zen">Zen Quotes</button>
+              <button class="preset-btn" data-preset="code">JS Snippet</button>
+            </div>
+            <div class="custom-actions">
+              <button class="btn-ghost small" id="clearCustomBtn">
+                ✕ CLEAR
+              </button>
+              <button class="btn-primary small" id="applyCustomBtn">
+                ✓ USE THIS TEXT
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="hud">
+          <div class="hud-item">
+            <div class="hud-val" id="wpmDisplay">—</div>
+            <div class="hud-label">WPM</div>
+          </div>
+          <div class="hud-item">
+            <div class="hud-val" id="accDisplay">—</div>
+            <div class="hud-label">ACC</div>
+          </div>
+          <div class="hud-item hud-timer">
+            <div class="timer-ring-wrap">
+              <svg class="timer-ring" viewBox="0 0 44 44">
+                <circle class="ring-bg" cx="22" cy="22" r="18" />
+                <circle
+                  class="ring-fill"
+                  id="timerRing"
+                  cx="22"
+                  cy="22"
+                  r="18"
+                />
+              </svg>
+              <span class="timer-num" id="timerDisplay">—</span>
+            </div>
+            <div class="hud-label">SEC</div>
+          </div>
+          <div class="hud-item">
+            <div class="hud-val" id="errDisplay">0</div>
+            <div class="hud-label">ERR</div>
+          </div>
+          <div class="hud-item">
+            <div class="hud-val" id="streakDisplay">0</div>
+            <div class="hud-label">STREAK</div>
+          </div>
+        </div>
+
+        <div class="arena" id="arena">
+          <div class="arena-topbar">
+            <span class="arena-mode-tag" id="arenaModeTag">WORDS · EASY</span>
+            <span class="arena-hint" id="arenaHint">start typing to begin</span>
+          </div>
+          <div class="words-display" id="wordsDisplay"></div>
+          <div class="input-echo-row">
+            <span class="prompt-char">›</span>
+            <div class="current-word-echo" id="currentWordEcho"></div>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-track">
+              <div class="progress-fill" id="progressBar"></div>
+            </div>
+            <span class="progress-pct" id="progressPct">0%</span>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button class="btn-ghost" id="resetBtn">
+            ↺ RESET <kbd>TAB</kbd>
+          </button>
+          <button class="btn-primary" id="startBtn">▶ START</button>
+        </div>
+
+        <div class="results-overlay hidden" id="resultsOverlay">
+          <div class="results-panel">
+            <div class="results-top">
+              <div class="results-grade-wrap">
+                <div class="results-grade" id="resultsGrade">S</div>
+                <div class="results-grade-sub">GRADE</div>
+              </div>
+              <div class="results-headline">
+                <div class="results-wpm-big" id="resWpmBig">0</div>
+                <div class="results-wpm-unit">words / min</div>
+              </div>
+            </div>
+            <div class="results-stats">
+              <div class="rs-item">
+                <div class="rs-num" id="res-acc">0%</div>
+                <div class="rs-label">ACCURACY</div>
+              </div>
+              <div class="rs-item">
+                <div class="rs-num" id="res-raw">0</div>
+                <div class="rs-label">RAW WPM</div>
+              </div>
+              <div class="rs-item">
+                <div class="rs-num" id="res-chars">0</div>
+                <div class="rs-label">CORRECT</div>
+              </div>
+              <div class="rs-item rs-bad">
+                <div class="rs-num" id="res-errors">0</div>
+                <div class="rs-label">ERRORS</div>
+              </div>
+              <div class="rs-item">
+                <div class="rs-num" id="res-streak">0</div>
+                <div class="rs-label">BEST STREAK</div>
+              </div>
+              <div class="rs-item">
+                <div class="rs-num" id="res-consistency">0%</div>
+                <div class="rs-label">CONSISTENCY</div>
+              </div>
+            </div>
+            <div class="wpm-chart-box">
+              <div class="chart-label-sm">WPM OVER TIME</div>
+              <canvas id="wpmChart" height="72"></canvas>
+            </div>
+            <div class="results-actions">
+              <button class="btn-ghost" id="shareBtn">⬡ SHARE</button>
+              <button class="btn-primary" id="retryBtn">▶ RETRY</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-content" id="tab-train">
+        <div class="section-header">
+          <h2 class="section-title">TRAINING MODULES</h2>
+          <p class="section-sub">Target weaknesses. Build muscle memory.</p>
+        </div>
+        <div class="modules-grid">
+          <div class="module-card" data-module="homerow">
+            <div class="module-glyph">⌨</div>
+            <div class="module-info">
+              <div class="module-title">HOME ROW</div>
+              <div class="module-desc">ASDF · JKL; foundation drill</div>
+            </div>
+            <div class="module-badge beginner">BEGINNER</div>
+            <button class="module-btn">LAUNCH →</button>
+          </div>
+          <div class="module-card" data-module="common">
+            <div class="module-glyph">≋</div>
+            <div class="module-info">
+              <div class="module-title">COMMON WORDS</div>
+              <div class="module-desc">Top 200 most used English words</div>
+            </div>
+            <div class="module-badge intermediate">INTERMEDIATE</div>
+            <button class="module-btn">LAUNCH →</button>
+          </div>
+          <div class="module-card" data-module="symbols">
+            <div class="module-glyph">{ }</div>
+            <div class="module-info">
+              <div class="module-title">SYMBOLS</div>
+              <div class="module-desc">Brackets, operators, punctuation</div>
+            </div>
+            <div class="module-badge intermediate">INTERMEDIATE</div>
+            <button class="module-btn">LAUNCH →</button>
+          </div>
+          <div class="module-card" data-module="numbers">
+            <div class="module-glyph">01</div>
+            <div class="module-info">
+              <div class="module-title">NUMBERS</div>
+              <div class="module-desc">Numeric row accuracy drill</div>
+            </div>
+            <div class="module-badge intermediate">INTERMEDIATE</div>
+            <button class="module-btn">LAUNCH →</button>
+          </div>
+          <div class="module-card" data-module="speed">
+            <div class="module-glyph">⚡</div>
+            <div class="module-info">
+              <div class="module-title">SPEED BURST</div>
+              <div class="module-desc">Short explosive sprints</div>
+            </div>
+            <div class="module-badge advanced">ADVANCED</div>
+            <button class="module-btn">LAUNCH →</button>
+          </div>
+          <div class="module-card" data-module="accuracy">
+            <div class="module-glyph">◎</div>
+            <div class="module-info">
+              <div class="module-title">SNIPER MODE</div>
+              <div class="module-desc">Zero errors or it resets</div>
+            </div>
+            <div class="module-badge hardcore">HARDCORE</div>
+            <button class="module-btn">LAUNCH →</button>
+          </div>
+        </div>
+        <div class="train-arena hidden" id="trainArena">
+          <div class="train-top">
+            <div class="train-title" id="trainTitle">MODULE</div>
+            <div class="train-meta">
+              Round <span id="trainRound">1</span>/<span id="trainTotal"
+                >10</span
+              >
+              · Score: <span id="trainScore">0</span> · Streak:
+              <span id="trainStreak">0</span>🔥
+            </div>
+            <button class="btn-ghost small" id="trainExitBtn">✕ EXIT</button>
+          </div>
+          <div class="train-target" id="trainWordDisplay">—</div>
+          <div class="input-row">
+            <span class="prompt-char">›</span>
+            <input
+              type="text"
+              id="trainInput"
+              class="train-input"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              placeholder="type the word and press Enter"
+            />
+          </div>
+          <div class="train-feedback" id="trainFeedback"></div>
+        </div>
+      </section>
+
+      <section class="tab-content" id="tab-stats">
+        <div class="stats-toprow">
+          <h2 class="section-title">PERFORMANCE LOG</h2>
+          <button class="btn-ghost small danger" id="clearStatsBtn">
+            ✕ CLEAR ALL
+          </button>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="sc-val" id="stat-avgWpm">—</div>
+            <div class="sc-label">AVG WPM</div>
+          </div>
+          <div class="stat-card accent">
+            <div class="sc-val" id="stat-bestWpm">—</div>
+            <div class="sc-label">BEST WPM</div>
+          </div>
+          <div class="stat-card">
+            <div class="sc-val" id="stat-avgAcc">—</div>
+            <div class="sc-label">AVG ACC</div>
+          </div>
+          <div class="stat-card">
+            <div class="sc-val" id="stat-tests">0</div>
+            <div class="sc-label">TESTS TAKEN</div>
+          </div>
+          <div class="stat-card">
+            <div class="sc-val" id="stat-totalTime">0m</div>
+            <div class="sc-label">TIME TYPED</div>
+          </div>
+          <div class="stat-card">
+            <div class="sc-val" id="stat-streak">—</div>
+            <div class="sc-label">BEST STREAK</div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-label">WPM PROGRESSION</div>
+          <canvas id="historyChart" height="110"></canvas>
+        </div>
+        <div class="table-card">
+          <div class="table-card-label">RECENT SESSIONS</div>
+          <div class="table-scroll">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>WPM</th>
+                  <th>RAW</th>
+                  <th>ACC</th>
+                  <th>ERR</th>
+                  <th>MODE</th>
+                  <th>DUR</th>
+                  <th>WHEN</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody">
+                <tr class="empty-row">
+                  <td colspan="8">No sessions yet — take a test!</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="footer">
+      <span>BUILT BY</span>
+      <a href="https://github.com/cottidev" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13">
+          <path
+            d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.385-1.335-1.755-1.335-1.755-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23A11.52 11.52 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.29-1.552 3.297-1.23 3.297-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 21.795 24 17.295 24 12c0-6.63-5.37-12-12-12z"
+          />
+        </svg>
+        Aymane Berhoua
+      </a>
+    </footer>
+
+    <div class="toast" id="toast"></div>
+    <script src="script.js"></script>
+  </body>
+</html>
