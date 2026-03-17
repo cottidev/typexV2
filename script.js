@@ -1,4 +1,13 @@
-"use strict";
+// script.js
+window.addEventListener("load", () => {
+  const loader = document.getElementById("loader");
+
+  // Optional delay to ensure the user actually sees the cool animation
+  setTimeout(() => {
+    loader.classList.add("fade-out");
+  }, 2000);
+});
+("use strict");
 
 /* ──────────────────────────────────────────────
    WORD / SENTENCE POOLS
