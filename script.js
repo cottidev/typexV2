@@ -1,13 +1,12 @@
-// script.js
+"use strict";
+
+/* ──────────────────────────────────────────────
+   LOADER
+   ────────────────────────────────────────────── */
 window.addEventListener("load", () => {
   const loader = document.getElementById("loader");
-
-  // Optional delay to ensure the user actually sees the cool animation
-  setTimeout(() => {
-    loader.classList.add("fade-out");
-  }, 2000);
+  setTimeout(() => loader.classList.add("fade-out"), 2000);
 });
-("use strict");
 
 /* ──────────────────────────────────────────────
    WORD / SENTENCE POOLS
@@ -359,7 +358,7 @@ const TRAIN_MODULES = {
       "+=_-",
       ".,;:",
       "\"'\\",
-      " ~`",
+      "~`",
       "!?,.",
       "#$%",
       "@&*",
@@ -461,6 +460,8 @@ const state = {
    ────────────────────────────────────────────── */
 const $ = (id) => document.getElementById(id);
 const qs = (sel) => document.querySelector(sel);
+const isMobile = () =>
+  window.matchMedia("(max-width: 700px)").matches || "ontouchstart" in window;
 
 function shuffle(arr) {
   const a = [...arr];
@@ -562,7 +563,6 @@ function saveHistory(entry) {
   }
   function draw() {
     ctx.clearRect(0, 0, W, H);
-    // Draw connecting lines between close nodes
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
         const dx = nodes[i].x - nodes[j].x;
@@ -602,7 +602,7 @@ function saveHistory(entry) {
 })();
 
 /* ──────────────────────────────────────────────
-   KEYSTROKE PARTICLE BURST
+   PARTICLE BURST
    ────────────────────────────────────────────── */
 function spawnBurst(x, y, correct) {
   const container = $("particleBurst");
@@ -613,28 +613,20 @@ function spawnBurst(x, y, correct) {
     el.className = "burst-particle";
     const angle = ((Math.PI * 2) / count) * i + Math.random() * 0.5;
     const dist = 20 + Math.random() * 25;
-    el.style.cssText = `
-      left: ${x}px; top: ${y}px;
-      background: ${color};
-      --dx: ${Math.cos(angle) * dist}px;
-      --dy: ${Math.sin(angle) * dist}px;
-      box-shadow: 0 0 4px ${color};
-    `;
+    el.style.cssText = `left:${x}px;top:${y}px;background:${color};--dx:${Math.cos(angle) * dist}px;--dy:${Math.sin(angle) * dist}px;box-shadow:0 0 4px ${color};`;
     container.appendChild(el);
     setTimeout(() => el.remove(), 650);
   }
 }
 
 /* ──────────────────────────────────────────────
-   TIMER RING UPDATE
+   TIMER RING
    ────────────────────────────────────────────── */
 function updateTimerRing() {
   const ring = $("timerRing");
   const numEl = $("timerDisplay");
   const pct = state.timeLeft / state.duration;
-  const circumference = 113.1;
-  ring.style.strokeDashoffset = circumference * (1 - pct);
-
+  ring.style.strokeDashoffset = 113.1 * (1 - pct);
   if (state.timeLeft <= 5) {
     ring.classList.add("ring-warn");
     numEl.classList.add("warn");
@@ -642,6 +634,90 @@ function updateTimerRing() {
     ring.classList.remove("ring-warn");
     numEl.classList.remove("warn");
   }
+}
+
+/* ──────────────────────────────────────────────
+   LIVE WPM GRAPH
+   ────────────────────────────────────────────── */
+function drawLiveGraph() {
+  const canvas = $("liveWpmCanvas");
+  if (!canvas) return;
+
+  const wrap = $("liveGraphWrap");
+
+  // Show graph once we have data
+  if (state.wpmHistory.length >= 2) {
+    wrap.classList.remove("hidden");
+  }
+
+  const W = canvas.parentElement.clientWidth || 300;
+  const H = parseInt(canvas.getAttribute("height")) || 48;
+  canvas.width = W;
+  canvas.height = H;
+
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, W, H);
+
+  const data = state.wpmHistory.map((d) => d.wpm);
+  if (data.length < 2) return;
+
+  const max = Math.max(...data, 10); // floor at 10 so graph isn't flat at zero
+  const step = W / Math.max(data.length - 1, 1);
+  const PAD = 4;
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, "rgba(168,255,62,0.25)");
+  grad.addColorStop(1, "rgba(168,255,62,0)");
+
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = i * step;
+    const y = H - PAD - (v / max) * (H - PAD * 2);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.lineTo((data.length - 1) * step, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = i * step;
+    const y = H - PAD - (v / max) * (H - PAD * 2);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = "#a8ff3e";
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = "#a8ff3e";
+  ctx.shadowBlur = 6;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Latest WPM dot + value label
+  const lastV = data[data.length - 1];
+  const lastX = (data.length - 1) * step;
+  const lastY = H - PAD - (lastV / max) * (H - PAD * 2);
+
+  ctx.beginPath();
+  ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+  ctx.fillStyle = "#a8ff3e";
+  ctx.shadowColor = "#a8ff3e";
+  ctx.shadowBlur = 8;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Label the current WPM on the right side
+  const labelX = Math.min(lastX + 7, W - 30);
+  ctx.fillStyle = "rgba(168,255,62,0.85)";
+  ctx.font = "10px JetBrains Mono";
+  ctx.textAlign = "left";
+  ctx.fillText(lastV, labelX, lastY + 4);
+
+  // Sync focus graph
+  if (typeof focusActive !== "undefined" && focusActive) drawFocusGraph();
 }
 
 /* ──────────────────────────────────────────────
@@ -662,7 +738,7 @@ document.querySelectorAll(".nav-btn").forEach((btn) => {
 });
 
 /* ──────────────────────────────────────────────
-   PILL / CHIP GROUPS
+   CHIP GROUPS
    ────────────────────────────────────────────── */
 function setupChipGroup(groupId, stateKey, callback) {
   $(groupId)
@@ -699,15 +775,12 @@ setupChipGroup("diffGroup", "difficulty");
    CUSTOM TEXT
    ────────────────────────────────────────────── */
 $("customTextInput").addEventListener("input", (e) => {
-  const val = e.target.value;
-  $("customCharCount").textContent = `${val.length} chars`;
+  $("customCharCount").textContent = `${e.target.value.length} chars`;
 });
-
 $("applyCustomBtn").addEventListener("click", () => {
   const text = $("customTextInput").value.trim();
   if (text.length < 20) {
     toast("Need at least 20 characters!", "error");
-    $("customTextInput").focus();
     return;
   }
   state.customText = text;
@@ -715,14 +788,12 @@ $("applyCustomBtn").addEventListener("click", () => {
   toast(`✓ Custom text loaded — ${text.length} chars`, "success");
   resetTest();
 });
-
 $("clearCustomBtn").addEventListener("click", () => {
   $("customTextInput").value = "";
   $("customCharCount").textContent = "0 chars";
   state.customText = "";
   state.usingCustom = false;
 });
-
 document.querySelectorAll(".preset-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     const preset = CUSTOM_PRESETS[btn.dataset.preset];
@@ -732,7 +803,6 @@ document.querySelectorAll(".preset-btn").forEach((btn) => {
     }
   });
 });
-
 function updateArenaModeTag() {
   const modeLabel =
     state.mode === "custom" ? "CUSTOM" : state.mode.toUpperCase();
@@ -771,29 +841,29 @@ function updateCharAt(index, correct) {
     scrollToCursor(next);
   }
 
-  // Spawn particle burst at character position
-  const rect = span.getBoundingClientRect();
-  spawnBurst(rect.left + rect.width / 2, rect.top + rect.height / 2, correct);
+  // Particles only on desktop (performance)
+  if (!isMobile()) {
+    const rect = span.getBoundingClientRect();
+    spawnBurst(rect.left + rect.width / 2, rect.top + rect.height / 2, correct);
+  }
+  // Sync focus char
+  if (typeof focusActive !== "undefined" && focusActive)
+    updateFocusCharAt(index, correct);
 }
 
 function scrollToCursor(el) {
   const display = $("wordsDisplay");
-  const elTop = el.offsetTop;
-  const elBottom = elTop + el.offsetHeight;
-  const dispBottom = display.scrollTop + display.clientHeight;
-  if (elBottom > dispBottom) {
-    display.scrollTop = elTop - display.clientHeight / 2;
+  const elBottom = el.offsetTop + el.offsetHeight;
+  if (elBottom > display.scrollTop + display.clientHeight) {
+    display.scrollTop = el.offsetTop - display.clientHeight / 2;
   }
 }
 
-/* Update the current-word echo below the display */
 function updateWordEcho() {
-  const echo = $("currentWordEcho");
-  // Find current word start
   let start = state.currentIndex;
   while (start > 0 && state.chars[start - 1] !== " ") start--;
   const typed = state.chars.slice(start, state.currentIndex).join("");
-  echo.textContent = typed || "";
+  $("currentWordEcho").textContent = typed || "";
 }
 
 /* ──────────────────────────────────────────────
@@ -822,22 +892,41 @@ function resetTest() {
 
   $("progressBar").style.width = "0%";
   $("progressPct").textContent = "0%";
-  $("arenaHint").textContent = "start typing to begin";
+  $("arenaHint").textContent = isMobile()
+    ? "tap to begin"
+    : "start typing to begin";
   $("arenaHint").style.display = "";
   $("resultsOverlay").classList.add("hidden");
   $("startBtn").textContent = "▶ START";
   $("arena").classList.remove("active-typing");
   $("currentWordEcho").textContent = "";
 
-  // Reset timer ring to full
+  // Hide & clear live graph
+  $("liveGraphWrap").classList.add("hidden");
+  const lc = $("liveWpmCanvas");
+  if (lc) {
+    const ctx = lc.getContext("2d");
+    ctx.clearRect(0, 0, lc.width, lc.height);
+  }
+
+  // Reset timer ring
   $("timerRing").style.strokeDashoffset = "0";
   $("timerDisplay").textContent = state.duration;
   $("timerRing").classList.remove("ring-warn");
   $("timerDisplay").classList.remove("warn");
+
+  // Sync focus mode
+  if (typeof focusActive !== "undefined" && focusActive) {
+    renderFocusWords();
+    syncFocusHUD();
+    $("focusProgressBar").style.width = "0%";
+    $("focusGraphWrap").classList.add("hidden");
+    $("focusArena").classList.remove("active-typing");
+  }
 }
 
 /* ──────────────────────────────────────────────
-   START / STOP / END TEST
+   START / STOP / END
    ────────────────────────────────────────────── */
 function startTest() {
   if (state.testRunning) return;
@@ -848,6 +937,16 @@ function startTest() {
   $("arenaHint").style.display = "none";
   $("startBtn").textContent = "■ RUNNING";
   $("arena").classList.add("active-typing");
+  if (typeof focusActive !== "undefined" && focusActive) {
+    $("focusArena").classList.add("active-typing");
+  }
+
+  // On mobile, focus the hidden input to summon the keyboard
+  if (isMobile()) {
+    const mi = $("mobileInput");
+    mi.style.pointerEvents = "auto";
+    mi.focus({ preventScroll: true });
+  }
 
   state.timer = setInterval(tickTimer, 1000);
 }
@@ -860,6 +959,7 @@ function tickTimer() {
 
   updateLiveStats();
   updateTimerRing();
+  drawLiveGraph();
 
   if (state.timeLeft <= 0) endTest();
 }
@@ -867,11 +967,19 @@ function tickTimer() {
 function stopTest(running) {
   clearInterval(state.timer);
   state.testRunning = running;
+  // Release mobile input
+  if (!running) {
+    const mi = $("mobileInput");
+    mi.style.pointerEvents = "none";
+    mi.blur();
+  }
 }
 
 function endTest() {
   stopTest(false);
   $("arena").classList.remove("active-typing");
+  if (typeof focusActive !== "undefined")
+    $("focusArena").classList.remove("active-typing");
 
   const elapsed = state.duration;
   const wpm = calcWPM(state.correctKeystrokes, elapsed);
@@ -883,7 +991,6 @@ function endTest() {
   const grade = gradeWPM(wpm, acc);
   const consistency = calcConsistency(state.wpmHistory);
 
-  // Animate the grade/wpm in
   $("resWpmBig").textContent = "0";
   $("resultsGrade").textContent = grade;
   $("res-acc").textContent = acc + "%";
@@ -906,7 +1013,7 @@ function endTest() {
 
   setTimeout(() => drawResultChart(), 100);
 
-  const entry = {
+  saveHistory({
     wpm,
     rawWpm,
     acc,
@@ -917,8 +1024,7 @@ function endTest() {
     difficulty: state.difficulty,
     duration: state.duration,
     date: new Date().toISOString(),
-  };
-  saveHistory(entry);
+  });
 }
 
 /* ──────────────────────────────────────────────
@@ -937,7 +1043,13 @@ function updateLiveStats() {
       state.totalKeystrokes > 0
         ? Math.round((state.correctKeystrokes / state.totalKeystrokes) * 100)
         : 100;
-    $("wpmDisplay").textContent = wpm;
+    const wpmEl = $("wpmDisplay");
+    if (wpmEl.textContent !== String(wpm)) {
+      wpmEl.closest(".hud-item").classList.remove("wpm-pulse");
+      void wpmEl.closest(".hud-item").offsetWidth; // reflow
+      wpmEl.closest(".hud-item").classList.add("wpm-pulse");
+    }
+    wpmEl.textContent = wpm;
     $("accDisplay").textContent = acc + "%";
   } else {
     $("wpmDisplay").textContent = "—";
@@ -945,21 +1057,23 @@ function updateLiveStats() {
     $("timerDisplay").textContent = state.duration;
   }
 
-  const progress =
+  const pct =
     state.chars.length > 0
-      ? (state.currentIndex / state.chars.length) * 100
+      ? Math.min((state.currentIndex / state.chars.length) * 100, 100)
       : 0;
-  const pct = Math.min(progress, 100);
   $("progressBar").style.width = pct + "%";
   $("progressPct").textContent = Math.round(pct) + "%";
+
+  // Sync focus mode HUD
+  if (typeof focusActive !== "undefined" && focusActive) syncFocusHUD();
 }
 
 /* ──────────────────────────────────────────────
-   KEYBOARD INPUT HANDLER
+   KEYBOARD INPUT
    ────────────────────────────────────────────── */
 function handleTestKey(key) {
   if (!$("resultsOverlay").classList.contains("hidden")) return;
-  if (!$("tab-test").classList.contains("active")) return;
+  if (!$("tab-test").classList.contains("active") && !focusActive) return;
 
   if (key === "Backspace") {
     if (state.currentIndex === 0) return;
@@ -981,6 +1095,8 @@ function handleTestKey(key) {
     }
     const next = qs(`#wordsDisplay [data-index="${state.currentIndex + 1}"]`);
     if (next) next.classList.remove("current");
+    // Sync focus display on backspace
+    if (focusActive) syncFocusChars();
     updateLiveStats();
     updateWordEcho();
     return;
@@ -1004,7 +1120,6 @@ function handleTestKey(key) {
   } else {
     state.errors++;
     state.streak = 0;
-    // Brief arena shake on error
     if (state.errors % 5 === 0) {
       $("arena").classList.add("shake");
       setTimeout(() => $("arena").classList.remove("shake"), 350);
@@ -1016,7 +1131,7 @@ function handleTestKey(key) {
   updateLiveStats();
   updateWordEcho();
 
-  // Extend text if near end (for non-custom)
+  // Extend text near end (non-custom)
   if (
     state.mode !== "custom" &&
     state.currentIndex >= state.chars.length - 20
@@ -1027,10 +1142,75 @@ function handleTestKey(key) {
     renderWords();
     const cur = qs(`#wordsDisplay [data-index="${state.currentIndex}"]`);
     if (cur) cur.classList.add("current");
+    // Rebuild focus display on text extend
+    if (focusActive) renderFocusWords();
   }
 }
 
-/* Button handlers */
+/* ──────────────────────────────────────────────
+   MOBILE INPUT BRIDGE
+   Mirrors the hidden input value into handleTestKey
+   ────────────────────────────────────────────── */
+(function setupMobileInput() {
+  const mi = $("mobileInput");
+  let lastValue = "";
+
+  mi.addEventListener("input", (e) => {
+    const current = mi.value;
+    if (current.length > lastValue.length) {
+      // Characters added
+      const added = current.slice(lastValue.length);
+      for (const ch of added) handleTestKey(ch);
+    } else if (current.length < lastValue.length) {
+      // Backspace
+      handleTestKey("Backspace");
+    }
+    lastValue = current;
+    // Keep input manageable — prevent it from growing too long
+    if (mi.value.length > 200) {
+      mi.value = mi.value.slice(-100);
+      lastValue = mi.value;
+    }
+  });
+
+  mi.addEventListener("keydown", (e) => {
+    if (e.key === "Backspace" && mi.value === "") {
+      // Backspace when input is empty
+      handleTestKey("Backspace");
+    }
+  });
+
+  // Tap on arena or focus arena → focus mobile input
+  ["arena", "focusArena"].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener("click", () => {
+      if (isMobile()) {
+        mi.style.pointerEvents = "auto";
+        mi.focus({ preventScroll: true });
+      }
+    });
+  });
+
+  // Prevent arena from losing keyboard context on mobile
+  document.addEventListener(
+    "touchstart",
+    (e) => {
+      if (!isMobile()) return;
+      if (!state.testRunning) return;
+      const tag = e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON") return;
+      if ($("tab-test").classList.contains("active") || focusActive) {
+        mi.focus({ preventScroll: true });
+      }
+    },
+    { passive: true },
+  );
+})();
+
+/* ──────────────────────────────────────────────
+   BUTTON HANDLERS
+   ────────────────────────────────────────────── */
 $("startBtn").addEventListener("click", () => {
   if (!state.testStarted) startTest();
   else resetTest();
@@ -1068,10 +1248,8 @@ function drawResultChart() {
     ctx.clearRect(0, 0, W, H);
     return;
   }
-
   const max = Math.max(...data, 1);
   const step = W / (data.length - 1);
-
   ctx.clearRect(0, 0, W, H);
 
   const grad = ctx.createLinearGradient(0, 0, 0, H);
@@ -1080,8 +1258,8 @@ function drawResultChart() {
 
   ctx.beginPath();
   data.forEach((v, i) => {
-    const x = i * step;
-    const y = H - (v / max) * (H - 10) - 5;
+    const x = i * step,
+      y = H - (v / max) * (H - 10) - 5;
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
   ctx.lineTo((data.length - 1) * step, H);
@@ -1092,8 +1270,8 @@ function drawResultChart() {
 
   ctx.beginPath();
   data.forEach((v, i) => {
-    const x = i * step;
-    const y = H - (v / max) * (H - 10) - 5;
+    const x = i * step,
+      y = H - (v / max) * (H - 10) - 5;
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
   ctx.strokeStyle = "#a8ff3e";
@@ -1109,8 +1287,7 @@ function drawResultChart() {
    ────────────────────────────────────────────── */
 document.querySelectorAll(".module-btn").forEach((btn) => {
   btn.addEventListener("click", (e) => {
-    const card = e.target.closest(".module-card");
-    startTraining(card.dataset.module);
+    startTraining(e.target.closest(".module-card").dataset.module);
   });
 });
 
@@ -1170,11 +1347,9 @@ $("trainInput").addEventListener("keydown", (e) => {
   }
   $("trainInput").value = "";
   state.trainIndex++;
-  if (state.trainIndex >= state.trainWords.length) {
+  if (state.trainIndex >= state.trainWords.length)
     setTimeout(finishTraining, 500);
-  } else {
-    setTimeout(updateTrainUI, 380);
-  }
+  else setTimeout(updateTrainUI, 380);
 });
 
 function finishTraining() {
@@ -1186,7 +1361,6 @@ function finishTraining() {
   toast(`Training done! Score: ${state.trainScore}`, "success");
   setTimeout(() => $("trainArena").classList.add("hidden"), 3200);
 }
-
 $("trainExitBtn").addEventListener("click", () =>
   $("trainArena").classList.add("hidden"),
 );
@@ -1225,20 +1399,10 @@ function renderStats() {
   h.slice(0, 20).forEach((e, i) => {
     const tr = document.createElement("tr");
     const date = new Date(e.date);
-    const dateStr = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, "0")}`;
-    tr.innerHTML = `
-      <td>${i + 1}</td>
-      <td class="wpm-cell">${e.wpm}</td>
-      <td>${e.rawWpm}</td>
-      <td>${e.acc}%</td>
-      <td>${e.errors}</td>
-      <td>${e.mode}/${e.difficulty}</td>
-      <td>${e.duration}s</td>
-      <td>${dateStr}</td>
-    `;
+    const ds = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, "0")}`;
+    tr.innerHTML = `<td>${i + 1}</td><td class="wpm-cell">${e.wpm}</td><td>${e.rawWpm}</td><td>${e.acc}%</td><td>${e.errors}</td><td>${e.mode}/${e.difficulty}</td><td>${e.duration}s</td><td>${ds}</td>`;
     body.appendChild(tr);
   });
-
   drawHistoryChart(h.slice(0, 20).reverse());
 }
 
@@ -1254,10 +1418,8 @@ function drawHistoryChart(data) {
   const wpms = data.map((d) => d.wpm);
   const max = Math.max(...wpms, 1);
   const step = W / (wpms.length - 1);
-
   ctx.clearRect(0, 0, W, H);
 
-  // Grid
   ctx.strokeStyle = "rgba(255,255,255,0.04)";
   ctx.lineWidth = 1;
   [0.25, 0.5, 0.75].forEach((t) => {
@@ -1268,14 +1430,13 @@ function drawHistoryChart(data) {
     ctx.stroke();
   });
 
-  // Gradient
   const grad = ctx.createLinearGradient(0, 0, 0, H);
   grad.addColorStop(0, "rgba(168,255,62,0.18)");
   grad.addColorStop(1, "rgba(168,255,62,0)");
   ctx.beginPath();
   wpms.forEach((v, i) => {
-    const x = i * step;
-    const y = H - (v / max) * (H - 20) - 10;
+    const x = i * step,
+      y = H - (v / max) * (H - 20) - 10;
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
   ctx.lineTo((wpms.length - 1) * step, H);
@@ -1284,11 +1445,10 @@ function drawHistoryChart(data) {
   ctx.fillStyle = grad;
   ctx.fill();
 
-  // Line
   ctx.beginPath();
   wpms.forEach((v, i) => {
-    const x = i * step;
-    const y = H - (v / max) * (H - 20) - 10;
+    const x = i * step,
+      y = H - (v / max) * (H - 20) - 10;
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
   ctx.strokeStyle = "#a8ff3e";
@@ -1298,10 +1458,9 @@ function drawHistoryChart(data) {
   ctx.stroke();
   ctx.shadowBlur = 0;
 
-  // Dots + labels
   wpms.forEach((v, i) => {
-    const x = i * step;
-    const y = H - (v / max) * (H - 20) - 10;
+    const x = i * step,
+      y = H - (v / max) * (H - 20) - 10;
     ctx.beginPath();
     ctx.arc(x, y, 3, 0, Math.PI * 2);
     ctx.fillStyle = "#a8ff3e";
@@ -1338,12 +1497,14 @@ if (localStorage.getItem("typex_theme") === "light")
   document.body.classList.add("light");
 
 /* ──────────────────────────────────────────────
-   GLOBAL KEYBOARD SHORTCUTS
+   GLOBAL KEYBOARD (DESKTOP)
    ────────────────────────────────────────────── */
 document.addEventListener("keydown", (e) => {
-  const inTrainInput = document.activeElement === $("trainInput");
+  const inTrain = document.activeElement === $("trainInput");
   const inCustom = document.activeElement === $("customTextInput");
-  if (inTrainInput || inCustom) return;
+  const inMobile = document.activeElement === $("mobileInput");
+  if (inTrain || inCustom) return;
+  if (inMobile) return; // handled by mobile bridge
 
   if (e.key === "Tab") {
     e.preventDefault();
@@ -1352,6 +1513,7 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape") {
     $("resultsOverlay").classList.add("hidden");
+    exitFocusMode();
     return;
   }
   if (e.key === "Enter" && !$("resultsOverlay").classList.contains("hidden")) {
@@ -1363,9 +1525,212 @@ document.addEventListener("keydown", (e) => {
   const tag = document.activeElement?.tagName;
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON") return;
 
+  if (e.key === "f" || e.key === "F") {
+    if (!state.testStarted) {
+      toggleFocusMode();
+      return;
+    }
+  }
   handleTestKey(e.key);
   if (e.key === "Backspace" || e.key === " ") e.preventDefault();
 });
+
+/* ──────────────────────────────────────────────
+   FOCUS MODE
+   ────────────────────────────────────────────── */
+let focusActive = false;
+
+function toggleFocusMode() {
+  if (focusActive) exitFocusMode();
+  else enterFocusMode();
+}
+
+function enterFocusMode() {
+  focusActive = true;
+  $("focusOverlay").classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  // Sync focus words with main state
+  renderFocusWords();
+  syncFocusHUD();
+  $("focusProgressBar").style.width = "0%";
+  $("focusGraphWrap").classList.add("hidden");
+  toast("⊞ Focus mode · ESC to exit", "");
+}
+
+function exitFocusMode() {
+  if (!focusActive) return;
+  focusActive = false;
+  $("focusOverlay").classList.add("hidden");
+  document.body.style.overflow = "";
+}
+
+function renderFocusWords() {
+  const display = $("focusWords");
+  display.innerHTML = "";
+  state.chars.forEach((ch, i) => {
+    const span = document.createElement("span");
+    span.className = "char";
+    span.textContent = ch === " " ? "\u00A0" : ch;
+    span.dataset.findex = i;
+    if (i < state.currentIndex) {
+      span.classList.add(state.charResults[i] ? "correct" : "wrong");
+    } else if (i === state.currentIndex) {
+      span.classList.add("current");
+    }
+    display.appendChild(span);
+  });
+}
+
+function updateFocusCharAt(index, correct) {
+  // Update just the typed char and advance cursor in focus display
+  const span = $("focusWords").querySelector(`[data-findex="${index}"]`);
+  if (!span) return;
+  span.classList.remove("current", "correct", "wrong");
+  span.classList.add(correct ? "correct" : "wrong");
+  const next = $("focusWords").querySelector(`[data-findex="${index + 1}"]`);
+  if (next) {
+    next.classList.add("current");
+    scrollFocusCursor(next);
+  }
+  // Also clear stale "current" from any previous span
+  const prevCurrent = $("focusWords").querySelector(
+    `[data-findex="${index - 1}"]`,
+  );
+  if (prevCurrent) prevCurrent.classList.remove("current");
+}
+
+/* Full re-sync of focus chars from state — used after backspace and bulk ops */
+function syncFocusChars() {
+  const display = $("focusWords");
+  const spans = display.querySelectorAll(".char");
+  spans.forEach((span) => {
+    const i = parseInt(span.dataset.findex, 10);
+    span.classList.remove("correct", "wrong", "current");
+    if (i < state.currentIndex) {
+      span.classList.add(state.charResults[i] ? "correct" : "wrong");
+    } else if (i === state.currentIndex) {
+      span.classList.add("current");
+      scrollFocusCursor(span);
+    }
+  });
+  // Update echo
+  let start = state.currentIndex;
+  while (start > 0 && state.chars[start - 1] !== " ") start--;
+  $("focusEcho").textContent =
+    state.chars.slice(start, state.currentIndex).join("") || "";
+}
+
+function scrollFocusCursor(el) {
+  const display = $("focusWords");
+  const elBottom = el.offsetTop + el.offsetHeight;
+  if (elBottom > display.scrollTop + display.clientHeight) {
+    display.scrollTop = el.offsetTop - display.clientHeight / 2;
+  }
+}
+
+function syncFocusHUD() {
+  $("focusSec").textContent =
+    state.timeLeft !== undefined ? state.timeLeft : state.duration;
+  $("focusErr").textContent = state.errors;
+  $("focusStreak").textContent = state.streak;
+
+  // Timer ring
+  const ring = $("focusTimerRing");
+  const num = $("focusSec");
+  const pct = state.timeLeft / state.duration;
+  ring.style.strokeDashoffset = 113.1 * (1 - pct);
+  if (state.timeLeft <= 5) {
+    ring.classList.add("ring-warn");
+    num.classList.add("warn");
+  } else {
+    ring.classList.remove("ring-warn");
+    num.classList.remove("warn");
+  }
+
+  if (state.testStarted && state.startTime) {
+    const elapsed = Math.max((Date.now() - state.startTime) / 1000, 0.1);
+    const wpm = calcWPM(state.correctKeystrokes, elapsed);
+    const acc =
+      state.totalKeystrokes > 0
+        ? Math.round((state.correctKeystrokes / state.totalKeystrokes) * 100)
+        : 100;
+    $("focusWpm").textContent = wpm;
+    $("focusAcc").textContent = acc + "%";
+  } else {
+    $("focusWpm").textContent = "—";
+    $("focusAcc").textContent = "—";
+    $("focusSec").textContent = state.duration;
+  }
+
+  const pctProg =
+    state.chars.length > 0
+      ? Math.min((state.currentIndex / state.chars.length) * 100, 100)
+      : 0;
+  $("focusProgressBar").style.width = pctProg + "%";
+
+  // Echo
+  let start = state.currentIndex;
+  while (start > 0 && state.chars[start - 1] !== " ") start--;
+  $("focusEcho").textContent =
+    state.chars.slice(start, state.currentIndex).join("") || "";
+
+  // Focus arena active state
+  const fa = $("focusArena");
+  if (state.testRunning) fa.classList.add("active-typing");
+  else fa.classList.remove("active-typing");
+}
+
+function drawFocusGraph() {
+  const canvas = $("focusGraphCanvas");
+  if (!canvas) return;
+  const wrap = $("focusGraphWrap");
+  if (state.wpmHistory.length >= 2) wrap.classList.remove("hidden");
+
+  const W = canvas.parentElement.clientWidth || 600;
+  const H = 40;
+  canvas.width = W;
+  canvas.height = H;
+
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, W, H);
+  const data = state.wpmHistory.map((d) => d.wpm);
+  if (data.length < 2) return;
+
+  const max = Math.max(...data, 10);
+  const step = W / Math.max(data.length - 1, 1);
+  const PAD = 3;
+
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, "rgba(168,255,62,0.22)");
+  grad.addColorStop(1, "rgba(168,255,62,0)");
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = i * step,
+      y = H - PAD - (v / max) * (H - PAD * 2);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.lineTo((data.length - 1) * step, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = i * step,
+      y = H - PAD - (v / max) * (H - PAD * 2);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = "#a8ff3e";
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = "#a8ff3e";
+  ctx.shadowBlur = 6;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+}
+
+$("focusBtn").addEventListener("click", toggleFocusMode);
+$("focusExitBtn").addEventListener("click", exitFocusMode);
 
 /* ──────────────────────────────────────────────
    INIT
@@ -1374,14 +1739,10 @@ document.addEventListener("keydown", (e) => {
   resetTest();
   renderStats();
   if (!localStorage.getItem("typex_visited")) {
-    setTimeout(
-      () =>
-        toast(
-          "💡 Tab to reset · Backspace to undo · CUSTOM mode = your own text",
-          "",
-        ),
-      1400,
-    );
+    const tip = isMobile()
+      ? "💡 Tap the arena to start · TAP START or just type"
+      : "💡 Tab to reset · Backspace to undo · CUSTOM mode = your own text";
+    setTimeout(() => toast(tip, ""), 1400);
     localStorage.setItem("typex_visited", "1");
   }
 })();
