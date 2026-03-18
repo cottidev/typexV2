@@ -67,6 +67,9 @@
           <button class="nav-btn" data-tab="stats">
             <span class="nav-icon">◎</span>STATS
           </button>
+          <button class="nav-btn" data-tab="daily">
+            <span class="nav-icon">◆</span>DAILY
+          </button>
         </nav>
         <div class="header-actions">
           <button class="icon-btn" id="downloadBtn" title="Download TYPEX">
@@ -452,6 +455,13 @@
           <div class="chart-card-label">WPM PROGRESSION</div>
           <canvas id="historyChart" height="110"></canvas>
         </div>
+
+        <!-- ── KEY HEATMAP ── -->
+        <div class="chart-card heatmap-card">
+          <div class="chart-card-label">KEY ACCURACY HEATMAP</div>
+          <div id="heatmapWorstKey" class="heatmap-worst hidden"></div>
+          <canvas id="heatmapCanvas"></canvas>
+        </div>
         <div class="table-card">
           <div class="table-card-label">RECENT SESSIONS</div>
           <div class="table-scroll">
@@ -477,7 +487,100 @@
           </div>
         </div>
       </section>
-    </div>
+
+      <!-- ── DAILY CHALLENGE TAB ── -->
+      <section class="tab-content" id="tab-daily">
+        <div class="daily-hero">
+          <div class="daily-hero-left">
+            <div class="daily-date-badge" id="dailyDateBadge">—</div>
+            <h2 class="section-title" style="margin-bottom:4px">DAILY CHALLENGE</h2>
+            <p class="section-sub">One text. One shot. Resets at midnight.</p>
+          </div>
+          <div class="daily-streak-wrap">
+            <div class="daily-streak-num" id="dailyStreakNum">0</div>
+            <div class="daily-streak-label">DAY STREAK 🔥</div>
+          </div>
+        </div>
+
+        <!-- Status banner — shown after completion -->
+        <div class="daily-done-banner hidden" id="dailyDoneBanner">
+          <div class="daily-done-grade" id="dailyDoneGrade">—</div>
+          <div class="daily-done-info">
+            <div class="daily-done-wpm" id="dailyDoneWpm">— WPM</div>
+            <div class="daily-done-meta" id="dailyDoneMeta">Come back tomorrow for a new challenge!</div>
+          </div>
+        </div>
+
+        <!-- Challenge arena (hidden once completed) -->
+        <div id="dailyChallengeArena">
+          <div class="daily-prompt-card" id="dailyPromptCard">
+            <div class="daily-prompt-label">TODAY'S TEXT</div>
+            <div class="daily-prompt-preview" id="dailyPromptPreview">Loading…</div>
+          </div>
+
+          <!-- HUD mirrors main test HUD -->
+          <div class="hud" id="dailyHud" style="margin-top:12px">
+            <div class="hud-item">
+              <div class="hud-val" id="dailyWpmDisplay">—</div>
+              <div class="hud-label">WPM</div>
+            </div>
+            <div class="hud-item">
+              <div class="hud-val" id="dailyAccDisplay">—</div>
+              <div class="hud-label">ACC</div>
+            </div>
+            <div class="hud-item hud-timer">
+              <div class="timer-ring-wrap">
+                <svg class="timer-ring" viewBox="0 0 44 44">
+                  <circle class="ring-bg" cx="22" cy="22" r="18" />
+                  <circle class="ring-fill" id="dailyTimerRing" cx="22" cy="22" r="18" />
+                </svg>
+                <span class="timer-num" id="dailyTimerDisplay">90</span>
+              </div>
+              <div class="hud-label">SEC</div>
+            </div>
+            <div class="hud-item">
+              <div class="hud-val" id="dailyErrDisplay">0</div>
+              <div class="hud-label">ERR</div>
+            </div>
+            <div class="hud-item">
+              <div class="hud-val" id="dailyStreakDisplay">0</div>
+              <div class="hud-label">STREAK</div>
+            </div>
+          </div>
+
+          <!-- Arena -->
+          <div class="arena" id="dailyArena" style="margin-top:10px">
+            <div class="arena-corner"></div>
+            <div class="arena-topbar">
+              <span class="arena-mode-tag">DAILY · 90s</span>
+              <span class="arena-hint" id="dailyArenaHint">start typing to begin</span>
+            </div>
+            <div class="words-display" id="dailyWordsDisplay"></div>
+            <div class="input-echo-row">
+              <span class="prompt-char">›</span>
+              <div class="current-word-echo" id="dailyWordEcho"></div>
+            </div>
+            <div class="progress-wrap" style="margin-top:12px">
+              <div class="progress-track">
+                <div class="progress-fill" id="dailyProgressBar"></div>
+              </div>
+              <span class="progress-pct" id="dailyProgressPct">0%</span>
+            </div>
+          </div>
+
+          <div class="action-row" style="margin-top:10px">
+            <button class="btn-primary" id="dailyStartBtn">▶ START</button>
+          </div>
+        </div>
+
+        <!-- Leaderboard-style past daily results -->
+        <div class="chart-card" style="margin-top:14px">
+          <div class="chart-card-label">YOUR DAILY HISTORY</div>
+          <div class="daily-history-list" id="dailyHistoryList">
+            <div class="daily-history-empty">No daily challenges completed yet.</div>
+          </div>
+        </div>
+      </section>
 
     <footer class="footer">
       <span>BUILT BY</span>
