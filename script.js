@@ -453,6 +453,9 @@ const state = {
   trainStreak: 0,
 
   history: JSON.parse(localStorage.getItem("typex_history") || "[]"),
+
+  // Per-key heatmap: { 'a': { attempts: 12, errors: 2 }, ... }
+  keyHeatmap: JSON.parse(localStorage.getItem("typex_heatmap") || "{}"),
 };
 
 /* ──────────────────────────────────────────────
@@ -728,6 +731,7 @@ document.querySelectorAll(".nav-btn").forEach((btn) => {
     btn.classList.add("active");
     $("tab-" + btn.dataset.tab).classList.add("active");
     if (btn.dataset.tab === "stats") renderStats();
+    if (btn.dataset.tab === "daily") renderDailyChallenge();
   });
 });
 
@@ -1012,6 +1016,9 @@ function endTest() {
     duration: state.duration,
     date: new Date().toISOString(),
   });
+
+  // Persist heatmap
+  localStorage.setItem("typex_heatmap", JSON.stringify(state.keyHeatmap));
 }
 
 /* ──────────────────────────────────────────────
@@ -1097,6 +1104,12 @@ function handleTestKey(key) {
   const correct = key === expected;
   state.charResults[state.currentIndex] = correct;
   state.totalKeystrokes++;
+
+  // ── Heatmap tracking ──
+  const hk = expected.toLowerCase();
+  if (!state.keyHeatmap[hk]) state.keyHeatmap[hk] = { attempts: 0, errors: 0 };
+  state.keyHeatmap[hk].attempts++;
+  if (!correct) state.keyHeatmap[hk].errors++;
 
   if (correct) {
     state.correctKeystrokes++;
@@ -1749,6 +1762,7 @@ function renderStats() {
     $("stat-totalTime").textContent = "0m";
     $("historyBody").innerHTML =
       '<tr class="empty-row"><td colspan="8">No sessions yet — take a test!</td></tr>';
+    drawHeatmap();
     return;
   }
 
@@ -1775,6 +1789,7 @@ function renderStats() {
     body.appendChild(tr);
   });
   drawHistoryChart(h.slice(0, 20).reverse());
+  drawHeatmap();
 }
 
 function drawHistoryChart(data) {
@@ -1846,10 +1861,253 @@ function drawHistoryChart(data) {
   });
 }
 
+/* ──────────────────────────────────────────────
+   KEY HEATMAP
+   ────────────────────────────────────────────── */
+function drawHeatmap() {
+  const canvas = $("heatmapCanvas");
+  if (!canvas) return;
+
+  const isLight = document.body.classList.contains("light");
+  const DPR = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth || 860;
+
+  // Layout constants — fixed proportions that always fit
+  const PAD_X = 32; // left/right margin inside the canvas — keeps keys away from card edges
+  const KEY_GAP = 6;
+  const ROWS = [
+    ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+    ["a", "s", "d", "f", "g", "h", "j", "k", "l", ";"],
+    ["z", "x", "c", "v", "b", "n", "m", ",", ".", "/"],
+  ];
+
+  const NUM_KEYS = 10;
+  // Compute key width, then recompute total and derive exact centre offset
+  const KEY_W = Math.round(
+    (W - 2 * PAD_X - KEY_GAP * (NUM_KEYS - 1)) / NUM_KEYS,
+  );
+  const KEY_H = Math.round(KEY_W * 0.82);
+  const TOTAL_KBD_W = NUM_KEYS * KEY_W + (NUM_KEYS - 1) * KEY_GAP;
+  // Perfectly centre: ignore PAD_X, just split remaining space equally
+  const KBD_X = PAD_X;
+  const KEY_RADIUS = 5;
+  const LEG_H = 8;
+  const LEG_MARGIN = 14;
+  const LABEL_H = 16;
+
+  const PAD_Y = 16; // top/bottom padding
+  const H =
+    PAD_Y +
+    ROWS.length * KEY_H +
+    (ROWS.length - 1) * KEY_GAP +
+    LEG_MARGIN +
+    LEG_H +
+    LABEL_H +
+    PAD_Y;
+
+  canvas.style.width = W + "px";
+  canvas.style.height = H + "px";
+  canvas.width = W * DPR;
+  canvas.height = H * DPR;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(DPR, DPR);
+  ctx.clearRect(0, 0, W, H);
+
+  const hm = state.keyHeatmap;
+
+  // Find max error rate for colour normalisation
+  let maxErr = 0;
+  Object.values(hm).forEach(({ attempts, errors }) => {
+    if (attempts >= 3) maxErr = Math.max(maxErr, errors / attempts);
+  });
+  if (maxErr === 0) maxErr = 1;
+
+  ROWS.forEach((row, ri) => {
+    row.forEach((key, ki) => {
+      const x = KBD_X + ki * (KEY_W + KEY_GAP);
+      const y = PAD_Y + ri * (KEY_H + KEY_GAP);
+
+      const data = hm[key];
+      let errRate = 0,
+        attempts = 0;
+      if (data && data.attempts >= 1) {
+        errRate = data.errors / data.attempts;
+        attempts = data.attempts;
+      }
+
+      let fillColor, borderColor, textColor;
+
+      if (attempts === 0) {
+        // Untyped — solid light grey key on light, near-invisible on dark
+        fillColor = isLight ? "#dedad0" : "rgba(255,255,255,0.03)";
+        borderColor = isLight ? "#c4bfb2" : "rgba(255,255,255,0.08)";
+        textColor = isLight ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.18)";
+      } else {
+        const t = Math.min(errRate / maxErr, 1);
+        if (t < 0.15) {
+          // Accurate — solid green-tinted key
+          fillColor = isLight
+            ? "#c8e6b0"
+            : `rgba(168,255,62,${0.06 + t * 0.35})`;
+          borderColor = isLight
+            ? "#8ab870"
+            : `rgba(168,255,62,${0.25 + t * 0.4})`;
+          textColor = isLight ? "#2d5a0e" : "#a8ff3e";
+        } else if (t < 0.5) {
+          // Mid — solid amber-tinted key
+          fillColor = isLight
+            ? "#f0dfa0"
+            : `rgba(251,191,36,${0.07 + t * 0.18})`;
+          borderColor = isLight
+            ? "#c8a830"
+            : `rgba(251,191,36,${0.25 + t * 0.3})`;
+          textColor = isLight ? "#6b4800" : "#fbbf24";
+        } else {
+          // Error-prone — solid rose-tinted key
+          fillColor = isLight ? "#f5bebe" : `rgba(255,93,93,${0.1 + t * 0.25})`;
+          borderColor = isLight
+            ? "#d07070"
+            : `rgba(255,93,93,${0.35 + t * 0.3})`;
+          textColor = isLight ? "#7a1a1a" : "#ff5d5d";
+        }
+      }
+
+      // Key background + border
+      ctx.fillStyle = fillColor;
+      ctx.beginPath();
+      ctx.roundRect(x, y, KEY_W, KEY_H, KEY_RADIUS);
+      ctx.fill();
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(x, y, KEY_W, KEY_H, KEY_RADIUS);
+      ctx.stroke();
+
+      const cx = x + KEY_W / 2;
+      const hasData = attempts >= 3;
+      const labelY = hasData ? y + KEY_H * 0.36 : y + KEY_H * 0.5;
+      const subY = y + KEY_H * 0.7;
+
+      // Key letter
+      ctx.fillStyle = textColor;
+      ctx.font = `600 ${Math.max(10, Math.round(KEY_W * 0.33))}px 'JetBrains Mono', monospace`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(key.toUpperCase(), cx, labelY);
+
+      // Error % (only when enough data)
+      if (hasData) {
+        const pct = Math.round(errRate * 100);
+        ctx.globalAlpha = 0.7;
+        ctx.font = `400 ${Math.max(8, Math.round(KEY_W * 0.23))}px 'JetBrains Mono', monospace`;
+        ctx.fillText(pct + "%", cx, subY);
+        ctx.globalAlpha = 1;
+      }
+    });
+  });
+
+  // ── Legend bar ──────────────────────────────
+  const LEG_Y =
+    PAD_Y + ROWS.length * KEY_H + (ROWS.length - 1) * KEY_GAP + LEG_MARGIN;
+  const LEG_X = KBD_X;
+  const LEG_W = TOTAL_KBD_W;
+
+  const grad = ctx.createLinearGradient(LEG_X, 0, LEG_X + LEG_W, 0);
+  grad.addColorStop(0, isLight ? "#8ab870" : "rgba(168,255,62,0.55)");
+  grad.addColorStop(0.4, isLight ? "#c8a830" : "rgba(251,191,36,0.55)");
+  grad.addColorStop(1, isLight ? "#d07070" : "rgba(255,93,93,0.65)");
+  ctx.beginPath();
+  ctx.roundRect(LEG_X, LEG_Y, LEG_W, LEG_H, 3);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.fillStyle = isLight ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.3)";
+  ctx.font = "10px 'JetBrains Mono', monospace";
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+  ctx.fillText("accurate", LEG_X, LEG_Y + LEG_H + 4);
+  ctx.textAlign = "center";
+  ctx.fillText("grey = not yet typed", LEG_X + LEG_W / 2, LEG_Y + LEG_H + 4);
+  ctx.textAlign = "right";
+  ctx.fillText("error-prone", LEG_X + LEG_W, LEG_Y + LEG_H + 4);
+
+  // ── Worst-key callout ───────────────────────
+  const worstKey = findWorstKey();
+  const wrapEl = $("heatmapWorstKey");
+  if (worstKey && wrapEl) {
+    const { key, errors, attempts } = worstKey;
+    const pct = Math.round((errors / attempts) * 100);
+    wrapEl.innerHTML = `
+      <span class="heatmap-worst-badge">${key.toUpperCase()}</span>
+      <span class="heatmap-worst-text">
+        Miss rate <strong>${pct}%</strong> &nbsp;·&nbsp; ${errors} errors / ${attempts} hits
+        &nbsp;·&nbsp; <em>focus: ${getKeyTip(key)}</em>
+      </span>`;
+    wrapEl.classList.remove("hidden");
+  } else if (wrapEl) {
+    wrapEl.classList.add("hidden");
+  }
+}
+
+function findWorstKey() {
+  const hm = state.keyHeatmap;
+  let worst = null;
+  let worstRate = 0;
+  const MIN_ATTEMPTS = 5;
+  for (const [key, { attempts, errors }] of Object.entries(hm)) {
+    if (attempts < MIN_ATTEMPTS) continue;
+    const rate = errors / attempts;
+    if (rate > worstRate) {
+      worstRate = rate;
+      worst = { key, attempts, errors };
+    }
+  }
+  return worst;
+}
+
+const KEY_TIPS = {
+  q: "stretch left pinky",
+  w: "left ring shift up",
+  e: "left middle up",
+  r: "left index up",
+  t: "left index stretch",
+  y: "right index stretch",
+  u: "right index up",
+  i: "right middle up",
+  o: "right ring up",
+  p: "right pinky up",
+  a: "anchor left pinky",
+  s: "left ring home",
+  d: "left middle home",
+  f: "left index home",
+  g: "left index reach",
+  h: "right index reach",
+  j: "right index home",
+  k: "right middle home",
+  l: "right ring home",
+  ";": "right pinky home",
+  z: "left pinky down",
+  x: "left ring down",
+  c: "left middle down",
+  v: "left index down",
+  b: "left index stretch down",
+  n: "right index down",
+  m: "right index stretch",
+  ",": "right middle down",
+  ".": "right ring down",
+  "/": "right pinky down",
+};
+
+function getKeyTip(key) {
+  return KEY_TIPS[key.toLowerCase()] || "practice this key";
+}
+
 $("clearStatsBtn").addEventListener("click", () => {
   if (confirm("Clear all session history?")) {
     state.history = [];
+    state.keyHeatmap = {};
     localStorage.removeItem("typex_history");
+    localStorage.removeItem("typex_heatmap");
     renderStats();
     toast("History cleared.", "success");
   }
@@ -2094,6 +2352,510 @@ function drawFocusGraph() {
 
 $("focusBtn").addEventListener("click", toggleFocusMode);
 $("focusExitBtn").addEventListener("click", exitFocusMode);
+
+/* ──────────────────────────────────────────────
+   DAILY CHALLENGE
+   ────────────────────────────────────────────── */
+
+/* ── Deterministic date-seeded text picker ── */
+function getDailyDateStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function seededRandom(seed) {
+  // Simple LCG so the same date always picks the same text
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0;
+  }
+  h = h >>> 0;
+  return (h % 1000) / 1000;
+}
+
+function getDailyText(dateStr) {
+  // Build a dedicated daily pool of longer, varied passages
+  const DAILY_POOL = [
+    "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump!",
+    "Programming is the art of telling another human what one wants the computer to do. Any fool can write code that a computer can understand. Good programmers write code that humans can understand.",
+    "First, solve the problem. Then, write the code. Never conflate the two steps. Simplicity is the soul of efficiency in all great software design.",
+    "The best way to predict the future is to implement it yourself, one commit at a time. Code never lies, but comments sometimes do and documentation often misleads.",
+    "In theory there is no difference between theory and practice. In practice there is. Refactoring legacy codebases requires extraordinary patience and meticulously crafted tests.",
+    "Cryptographic algorithms rely fundamentally on mathematical properties that make certain computational problems intractable for any adversary.",
+    "Distributed systems introduce fascinating challenges around consistency, availability, and partition tolerance that require careful architectural design choices.",
+    "The philosophical implications of artificial general intelligence challenge our fundamental understanding of consciousness, creativity, and what it means to be human.",
+    "Microservices architecture introduces operational complexity while simultaneously improving scalability, fault isolation, and independent deployment flexibility.",
+    "Comprehensive performance optimization requires careful profiling, rigorous benchmarking, and iterative refinement of all critical bottlenecks in the system.",
+    "She sells seashells by the seashore and the shells she sells are surely seashells. If she sells shells on the seashore, I am sure she sells seashore shells.",
+    "To be or not to be, that is the question. Whether it is nobler in the mind to suffer the slings and arrows of outrageous fortune, or to take arms against a sea of troubles.",
+    "It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness, it was the epoch of belief.",
+    "Space is big. You just won't believe how vastly, hugely, mind-bogglingly big it is. I mean, you may think it is a long way down the road to the chemist, but that is just peanuts to space.",
+    "The universe is under no obligation to make sense to you. We are all connected to each other biologically, to the earth chemically, and to the rest of the universe atomically.",
+    "Not all those who wander are lost. All that is gold does not glitter. The old that is strong does not wither. Deep roots are not reached by the frost.",
+    "Imagination is more important than knowledge. Knowledge is limited. Imagination encircles the entire world and all there ever will be to know and understand.",
+    "Two things are infinite: the universe and human stupidity, and I am not sure about the universe. The important thing is not to stop questioning.",
+    "In the middle of difficulty lies opportunity. Success is not final, failure is not fatal: it is the courage to continue that counts above all else.",
+    "The only way to do great work is to love what you do. If you have not found it yet, keep looking. Do not settle. As with all matters of the heart, you will know when you find it.",
+    "Premature optimization is the root of all evil. Make it work, make it right, make it fast — in that order. Simple things should be simple and complex things should be possible.",
+    "Any sufficiently advanced technology is indistinguishable from magic. The universe is not only queerer than we suppose, it is queerer than we can suppose.",
+    "You miss one hundred percent of the shots you do not take. The secret to getting ahead is getting started. Done is better than perfect in almost every situation.",
+    "The greatest glory in living lies not in never falling, but in rising every time we fall. It always seems impossible until it is done and then it seems obvious.",
+    "Be yourself; everyone else is already taken. To live is the rarest thing in the world. Most people just exist and never truly examine the lives they lead.",
+    "The only true wisdom is in knowing you know nothing. An unexamined life is not worth living. Wonder is the beginning of wisdom in every field of inquiry.",
+    "async function fetchData(url) { const response = await fetch(url); if (!response.ok) throw new Error(response.statusText); return await response.json(); }",
+    "const memoize = fn => { const cache = new Map(); return (...args) => { const key = JSON.stringify(args); return cache.has(key) ? cache.get(key) : cache.set(key, fn(...args)).get(key); }; };",
+    "type Result<T, E> = { ok: true; value: T } | { ok: false; error: E }; function unwrap<T>(r: Result<T, Error>): T { if (r.ok) return r.value; throw r.error; }",
+    "The implementation of asynchronous programming paradigms necessitates a comprehensive understanding of event-driven architectures and non-blocking I/O operations.",
+  ];
+
+  const idx = Math.floor(seededRandom(dateStr) * DAILY_POOL.length);
+  return DAILY_POOL[idx];
+}
+
+/* ── Daily persistent state ── */
+const DAILY_KEY = "typex_daily";
+
+function loadDailyStore() {
+  try {
+    return JSON.parse(localStorage.getItem(DAILY_KEY) || "{}");
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveDailyStore(data) {
+  localStorage.setItem(DAILY_KEY, JSON.stringify(data));
+}
+
+/* Streak logic: count consecutive days including today */
+function calcDailyStreak(history) {
+  if (!history || history.length === 0) return 0;
+  // history is newest-first, each entry has .date (YYYY-MM-DD)
+  const sorted = [...history].sort((a, b) => b.date.localeCompare(a.date));
+  const today = getDailyDateStr();
+  let streak = 0;
+  let expected = today;
+  for (const entry of sorted) {
+    if (entry.date === expected) {
+      streak++;
+      // Step back one day
+      const d = new Date(expected + "T12:00:00");
+      d.setDate(d.getDate() - 1);
+      expected = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+/* ── Daily typing engine state ── */
+const dState = {
+  chars: [],
+  charResults: [],
+  currentIndex: 0,
+  errors: 0,
+  totalKeystrokes: 0,
+  correctKeystrokes: 0,
+  streak: 0,
+  bestStreak: 0,
+  wpmHistory: [],
+  startTime: null,
+  timer: null,
+  timeLeft: 90,
+  duration: 90,
+  running: false,
+  started: false,
+};
+
+function dailyTimerRingUpdate() {
+  const ring = $("dailyTimerRing");
+  const num = $("dailyTimerDisplay");
+  if (!ring || !num) return;
+  const pct = dState.timeLeft / dState.duration;
+  ring.style.strokeDashoffset = 113.1 * (1 - pct);
+  if (dState.timeLeft <= 5) {
+    ring.classList.add("ring-warn");
+    num.classList.add("warn");
+  } else {
+    ring.classList.remove("ring-warn");
+    num.classList.remove("warn");
+  }
+}
+
+function renderDailyWords() {
+  const display = $("dailyWordsDisplay");
+  if (!display) return;
+  display.innerHTML = "";
+  dState.chars.forEach((ch, i) => {
+    const span = document.createElement("span");
+    span.className = "char";
+    span.textContent = ch === " " ? "\u00A0" : ch;
+    span.dataset.di = i;
+    if (i < dState.currentIndex) {
+      span.classList.add(dState.charResults[i] ? "correct" : "wrong");
+    } else if (i === dState.currentIndex) {
+      span.classList.add("current");
+    }
+    display.appendChild(span);
+  });
+}
+
+function updateDailyHUD() {
+  $("dailyTimerDisplay").textContent = dState.timeLeft;
+  $("dailyErrDisplay").textContent = dState.errors;
+  $("dailyStreakDisplay").textContent = dState.streak;
+  dailyTimerRingUpdate();
+
+  if (dState.started && dState.startTime) {
+    const elapsed = Math.max((Date.now() - dState.startTime) / 1000, 0.1);
+    const wpm = calcWPM(dState.correctKeystrokes, elapsed);
+    const acc =
+      dState.totalKeystrokes > 0
+        ? Math.round((dState.correctKeystrokes / dState.totalKeystrokes) * 100)
+        : 100;
+    $("dailyWpmDisplay").textContent = wpm;
+    $("dailyAccDisplay").textContent = acc + "%";
+  } else {
+    $("dailyWpmDisplay").textContent = "—";
+    $("dailyAccDisplay").textContent = "—";
+  }
+
+  const pct =
+    dState.chars.length > 0
+      ? Math.min((dState.currentIndex / dState.chars.length) * 100, 100)
+      : 0;
+  $("dailyProgressBar").style.width = pct + "%";
+  $("dailyProgressPct").textContent = Math.round(pct) + "%";
+}
+
+function startDailyTest() {
+  if (dState.running) return;
+  dState.running = true;
+  dState.started = true;
+  dState.startTime = Date.now();
+  $("dailyArenaHint").style.display = "none";
+  $("dailyStartBtn").textContent = "■ RUNNING";
+  $("dailyArena").classList.add("active-typing");
+
+  if (isMobile()) {
+    const mi = $("mobileInput");
+    mi.style.pointerEvents = "auto";
+    mi.focus({ preventScroll: true });
+  }
+
+  dState.timer = setInterval(() => {
+    dState.timeLeft--;
+    const elapsed = (Date.now() - dState.startTime) / 1000;
+    dState.wpmHistory.push({
+      t: Math.round(elapsed),
+      wpm: calcWPM(dState.correctKeystrokes, elapsed),
+    });
+    updateDailyHUD();
+    if (dState.timeLeft <= 0) endDailyTest();
+  }, 1000);
+}
+
+function endDailyTest() {
+  clearInterval(dState.timer);
+  dState.running = false;
+  $("dailyArena").classList.remove("active-typing");
+  if (isMobile()) {
+    const mi = $("mobileInput");
+    mi.style.pointerEvents = "none";
+    mi.blur();
+  }
+
+  const wpm = calcWPM(dState.correctKeystrokes, dState.duration);
+  const rawWpm = calcWPM(dState.totalKeystrokes, dState.duration);
+  const acc =
+    dState.totalKeystrokes > 0
+      ? Math.round((dState.correctKeystrokes / dState.totalKeystrokes) * 100)
+      : 100;
+  const grade = gradeWPM(wpm, acc);
+  const today = getDailyDateStr();
+
+  // Save to daily store
+  const store = loadDailyStore();
+  if (!store.history) store.history = [];
+  // Only save once per day — replace if already exists (re-attempt guard)
+  store.history = store.history.filter((e) => e.date !== today);
+  store.history.unshift({
+    date: today,
+    wpm,
+    rawWpm,
+    acc,
+    errors: dState.errors,
+    grade,
+  });
+  if (store.history.length > 60) store.history.length = 60;
+  saveDailyStore(store);
+
+  // Show done banner, hide arena
+  $("dailyChallengeArena").style.display = "none";
+  const banner = $("dailyDoneBanner");
+  $("dailyDoneGrade").textContent = grade;
+  $("dailyDoneWpm").textContent = wpm + " WPM";
+  $("dailyDoneMeta").textContent =
+    `${acc}% accuracy · ${dState.errors} errors · Come back tomorrow!`;
+  banner.classList.remove("hidden");
+
+  // Update streak display
+  const streak = calcDailyStreak(store.history);
+  $("dailyStreakNum").textContent = streak;
+
+  renderDailyHistory(store.history);
+  toast(`Daily done! ${wpm} WPM — Grade ${grade}`, "success");
+}
+
+function handleDailyKey(key) {
+  if (!$("tab-daily").classList.contains("active")) return;
+  // Don't intercept if a results overlay is showing
+  if (!$("resultsOverlay").classList.contains("hidden")) return;
+
+  if (key === "Backspace") {
+    if (dState.currentIndex === 0) return;
+    dState.currentIndex--;
+    const wasCorrect = dState.charResults[dState.currentIndex];
+    dState.charResults[dState.currentIndex] = null;
+    if (wasCorrect === true) {
+      dState.correctKeystrokes = Math.max(0, dState.correctKeystrokes - 1);
+      dState.streak = Math.max(0, dState.streak - 1);
+    } else if (wasCorrect === false) {
+      dState.errors = Math.max(0, dState.errors - 1);
+    }
+    dState.totalKeystrokes = Math.max(0, dState.totalKeystrokes - 1);
+    const prev = $("dailyWordsDisplay").querySelector(
+      `[data-di="${dState.currentIndex}"]`,
+    );
+    if (prev) {
+      prev.classList.remove("correct", "wrong", "current");
+      prev.classList.add("current");
+    }
+    const next = $("dailyWordsDisplay").querySelector(
+      `[data-di="${dState.currentIndex + 1}"]`,
+    );
+    if (next) next.classList.remove("current");
+    updateDailyHUD();
+    // echo
+    let start = dState.currentIndex;
+    while (start > 0 && dState.chars[start - 1] !== " ") start--;
+    $("dailyWordEcho").textContent =
+      dState.chars.slice(start, dState.currentIndex).join("") || "";
+    return;
+  }
+
+  if (key.length !== 1) return;
+  if (!dState.started) startDailyTest();
+  if (!dState.running) return;
+
+  const expected = dState.chars[dState.currentIndex];
+  if (expected === undefined) return;
+
+  const correct = key === expected;
+  dState.charResults[dState.currentIndex] = correct;
+  dState.totalKeystrokes++;
+
+  if (correct) {
+    dState.correctKeystrokes++;
+    dState.streak++;
+    if (dState.streak > dState.bestStreak) dState.bestStreak = dState.streak;
+  } else {
+    dState.errors++;
+    dState.streak = 0;
+    if (dState.errors % 5 === 0) {
+      $("dailyArena").classList.add("shake");
+      setTimeout(() => $("dailyArena").classList.remove("shake"), 350);
+    }
+  }
+
+  // Update display char
+  const span = $("dailyWordsDisplay").querySelector(
+    `[data-di="${dState.currentIndex}"]`,
+  );
+  if (span) {
+    span.classList.remove("current", "correct", "wrong");
+    span.classList.add(correct ? "correct" : "wrong");
+    if (!isMobile()) {
+      const rect = span.getBoundingClientRect();
+      spawnBurst(
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2,
+        correct,
+      );
+    }
+  }
+  const nextSpan = $("dailyWordsDisplay").querySelector(
+    `[data-di="${dState.currentIndex + 1}"]`,
+  );
+  if (nextSpan) {
+    nextSpan.classList.add("current");
+    // scroll
+    const display = $("dailyWordsDisplay");
+    const elBottom = nextSpan.offsetTop + nextSpan.offsetHeight;
+    if (elBottom > display.scrollTop + display.clientHeight) {
+      display.scrollTop = nextSpan.offsetTop - display.clientHeight / 2;
+    }
+  }
+
+  dState.currentIndex++;
+  updateDailyHUD();
+
+  // word echo
+  let start = dState.currentIndex;
+  while (start > 0 && dState.chars[start - 1] !== " ") start--;
+  $("dailyWordEcho").textContent =
+    dState.chars.slice(start, dState.currentIndex).join("") || "";
+
+  // Auto-finish if all chars typed before timer ends
+  if (dState.currentIndex >= dState.chars.length) endDailyTest();
+}
+
+function renderDailyHistory(history) {
+  const list = $("dailyHistoryList");
+  if (!list) return;
+  if (!history || history.length === 0) {
+    list.innerHTML =
+      '<div class="daily-history-empty">No daily challenges completed yet.</div>';
+    return;
+  }
+  list.innerHTML = history
+    .slice(0, 14)
+    .map((e) => {
+      const gradeClass = "grade-" + (e.grade || "f").toLowerCase();
+      return `<div class="daily-history-row">
+      <span class="dhr-date">${e.date}</span>
+      <span class="dhr-wpm">${e.wpm}</span>
+      <span class="dhr-acc">${e.acc}% acc</span>
+      <span class="dhr-grade ${gradeClass}">${e.grade || "—"}</span>
+      <span class="dhr-streak">${e.errors} err</span>
+    </div>`;
+    })
+    .join("");
+}
+
+function renderDailyChallenge() {
+  const today = getDailyDateStr();
+  const store = loadDailyStore();
+  const text = getDailyText(today);
+  const streak = calcDailyStreak(store.history || []);
+
+  // Date badge + streak
+  $("dailyDateBadge").textContent = today;
+  $("dailyStreakNum").textContent = streak;
+
+  // Show text preview
+  $("dailyPromptPreview").textContent = text;
+
+  // Check if already completed today
+  const todayEntry = (store.history || []).find((e) => e.date === today);
+  if (todayEntry) {
+    // Show done state
+    $("dailyChallengeArena").style.display = "none";
+    $("dailyDoneGrade").textContent = todayEntry.grade || "—";
+    $("dailyDoneWpm").textContent = todayEntry.wpm + " WPM";
+    $("dailyDoneMeta").textContent =
+      `${todayEntry.acc}% accuracy · ${todayEntry.errors} errors · Come back tomorrow!`;
+    $("dailyDoneBanner").classList.remove("hidden");
+  } else {
+    // Fresh — set up arena
+    $("dailyChallengeArena").style.display = "";
+    $("dailyDoneBanner").classList.add("hidden");
+
+    // Reset dState
+    Object.assign(dState, {
+      chars: text.split(""),
+      charResults: new Array(text.length).fill(null),
+      currentIndex: 0,
+      errors: 0,
+      totalKeystrokes: 0,
+      correctKeystrokes: 0,
+      streak: 0,
+      bestStreak: 0,
+      wpmHistory: [],
+      startTime: null,
+      timeLeft: 90,
+      duration: 90,
+      running: false,
+      started: false,
+    });
+    clearInterval(dState.timer);
+
+    renderDailyWords();
+    updateDailyHUD();
+    $("dailyArenaHint").style.display = "";
+    $("dailyArenaHint").textContent = isMobile()
+      ? "tap to begin"
+      : "start typing to begin";
+    $("dailyStartBtn").textContent = "▶ START";
+    $("dailyArena").classList.remove("active-typing");
+    $("dailyTimerRing").style.strokeDashoffset = "0";
+    $("dailyTimerRing").classList.remove("ring-warn");
+    $("dailyTimerDisplay").classList.remove("warn");
+  }
+
+  renderDailyHistory(store.history || []);
+}
+
+// Wire start button
+$("dailyStartBtn").addEventListener("click", () => {
+  if (!dState.started) startDailyTest();
+});
+
+// Wire daily arena click (mobile keyboard)
+$("dailyArena").addEventListener("click", () => {
+  if (isMobile() && dState.running) {
+    const mi = $("mobileInput");
+    mi.style.pointerEvents = "auto";
+    mi.focus({ preventScroll: true });
+  }
+});
+
+// Hook daily key handler into global keydown
+document.addEventListener(
+  "keydown",
+  (e) => {
+    if (!$("tab-daily") || !$("tab-daily").classList.contains("active")) return;
+    const inTrain = document.activeElement === $("trainInput");
+    const inCustom = document.activeElement === $("customTextInput");
+    const inMobile = document.activeElement === $("mobileInput");
+    if (inTrain || inCustom) return;
+    if (inMobile) return;
+    const tag = document.activeElement?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON") return;
+    handleDailyKey(e.key);
+    if (e.key === "Backspace" || e.key === " ") e.preventDefault();
+  },
+  true,
+); // capture phase so it fires before global handler
+
+// Hook daily into mobile input bridge
+const _origMobileHandler = null; // mobile bridge already dispatches to handleTestKey
+// Patch: if daily tab active, re-route mobile input to handleDailyKey
+(function patchMobileForDaily() {
+  const mi = $("mobileInput");
+  if (!mi) return;
+  let lastLen = 0;
+  mi.addEventListener(
+    "input",
+    () => {
+      if (!$("tab-daily").classList.contains("active")) return;
+      const cur = mi.value;
+      if (cur.length > lastLen) {
+        const added = cur.slice(lastLen);
+        for (const ch of added) handleDailyKey(ch);
+      } else if (cur.length < lastLen) {
+        handleDailyKey("Backspace");
+      }
+      lastLen = cur.length;
+      if (mi.value.length > 200) {
+        mi.value = mi.value.slice(-100);
+        lastLen = mi.value.length;
+      }
+    },
+    true,
+  ); // capture — fires before the main bridge listener
+})();
 
 /* ──────────────────────────────────────────────
    INIT
