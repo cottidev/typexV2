@@ -645,7 +645,6 @@ function drawLiveGraph() {
 
   const wrap = $("liveGraphWrap");
 
-  // Show graph once we have data
   if (state.wpmHistory.length >= 2) {
     wrap.classList.remove("hidden");
   }
@@ -661,11 +660,10 @@ function drawLiveGraph() {
   const data = state.wpmHistory.map((d) => d.wpm);
   if (data.length < 2) return;
 
-  const max = Math.max(...data, 10); // floor at 10 so graph isn't flat at zero
+  const max = Math.max(...data, 10);
   const step = W / Math.max(data.length - 1, 1);
   const PAD = 4;
 
-  // Gradient fill
   const grad = ctx.createLinearGradient(0, 0, 0, H);
   grad.addColorStop(0, "rgba(168,255,62,0.25)");
   grad.addColorStop(1, "rgba(168,255,62,0)");
@@ -682,7 +680,6 @@ function drawLiveGraph() {
   ctx.fillStyle = grad;
   ctx.fill();
 
-  // Line
   ctx.beginPath();
   data.forEach((v, i) => {
     const x = i * step;
@@ -696,7 +693,6 @@ function drawLiveGraph() {
   ctx.stroke();
   ctx.shadowBlur = 0;
 
-  // Latest WPM dot + value label
   const lastV = data[data.length - 1];
   const lastX = (data.length - 1) * step;
   const lastY = H - PAD - (lastV / max) * (H - PAD * 2);
@@ -709,14 +705,12 @@ function drawLiveGraph() {
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  // Label the current WPM on the right side
   const labelX = Math.min(lastX + 7, W - 30);
   ctx.fillStyle = "rgba(168,255,62,0.85)";
   ctx.font = "10px JetBrains Mono";
   ctx.textAlign = "left";
   ctx.fillText(lastV, labelX, lastY + 4);
 
-  // Sync focus graph
   if (typeof focusActive !== "undefined" && focusActive) drawFocusGraph();
 }
 
@@ -841,12 +835,10 @@ function updateCharAt(index, correct) {
     scrollToCursor(next);
   }
 
-  // Particles only on desktop (performance)
   if (!isMobile()) {
     const rect = span.getBoundingClientRect();
     spawnBurst(rect.left + rect.width / 2, rect.top + rect.height / 2, correct);
   }
-  // Sync focus char
   if (typeof focusActive !== "undefined" && focusActive)
     updateFocusCharAt(index, correct);
 }
@@ -901,7 +893,6 @@ function resetTest() {
   $("arena").classList.remove("active-typing");
   $("currentWordEcho").textContent = "";
 
-  // Hide & clear live graph
   $("liveGraphWrap").classList.add("hidden");
   const lc = $("liveWpmCanvas");
   if (lc) {
@@ -909,13 +900,11 @@ function resetTest() {
     ctx.clearRect(0, 0, lc.width, lc.height);
   }
 
-  // Reset timer ring
   $("timerRing").style.strokeDashoffset = "0";
   $("timerDisplay").textContent = state.duration;
   $("timerRing").classList.remove("ring-warn");
   $("timerDisplay").classList.remove("warn");
 
-  // Sync focus mode
   if (typeof focusActive !== "undefined" && focusActive) {
     renderFocusWords();
     syncFocusHUD();
@@ -941,7 +930,6 @@ function startTest() {
     $("focusArena").classList.add("active-typing");
   }
 
-  // On mobile, focus the hidden input to summon the keyboard
   if (isMobile()) {
     const mi = $("mobileInput");
     mi.style.pointerEvents = "auto";
@@ -967,7 +955,6 @@ function tickTimer() {
 function stopTest(running) {
   clearInterval(state.timer);
   state.testRunning = running;
-  // Release mobile input
   if (!running) {
     const mi = $("mobileInput");
     mi.style.pointerEvents = "none";
@@ -980,6 +967,7 @@ function endTest() {
   $("arena").classList.remove("active-typing");
   if (typeof focusActive !== "undefined")
     $("focusArena").classList.remove("active-typing");
+  if (focusActive) exitFocusMode();
 
   const elapsed = state.duration;
   const wpm = calcWPM(state.correctKeystrokes, elapsed);
@@ -1001,7 +989,6 @@ function endTest() {
   $("res-consistency").textContent = consistency + "%";
   $("resultsOverlay").classList.remove("hidden");
 
-  // Animate WPM count up
   let current = 0;
   const target = wpm;
   const step = Math.ceil(target / 25);
@@ -1046,7 +1033,7 @@ function updateLiveStats() {
     const wpmEl = $("wpmDisplay");
     if (wpmEl.textContent !== String(wpm)) {
       wpmEl.closest(".hud-item").classList.remove("wpm-pulse");
-      void wpmEl.closest(".hud-item").offsetWidth; // reflow
+      void wpmEl.closest(".hud-item").offsetWidth;
       wpmEl.closest(".hud-item").classList.add("wpm-pulse");
     }
     wpmEl.textContent = wpm;
@@ -1064,7 +1051,6 @@ function updateLiveStats() {
   $("progressBar").style.width = pct + "%";
   $("progressPct").textContent = Math.round(pct) + "%";
 
-  // Sync focus mode HUD
   if (typeof focusActive !== "undefined" && focusActive) syncFocusHUD();
 }
 
@@ -1095,7 +1081,6 @@ function handleTestKey(key) {
     }
     const next = qs(`#wordsDisplay [data-index="${state.currentIndex + 1}"]`);
     if (next) next.classList.remove("current");
-    // Sync focus display on backspace
     if (focusActive) syncFocusChars();
     updateLiveStats();
     updateWordEcho();
@@ -1131,7 +1116,6 @@ function handleTestKey(key) {
   updateLiveStats();
   updateWordEcho();
 
-  // Extend text near end (non-custom)
   if (
     state.mode !== "custom" &&
     state.currentIndex >= state.chars.length - 20
@@ -1142,14 +1126,12 @@ function handleTestKey(key) {
     renderWords();
     const cur = qs(`#wordsDisplay [data-index="${state.currentIndex}"]`);
     if (cur) cur.classList.add("current");
-    // Rebuild focus display on text extend
     if (focusActive) renderFocusWords();
   }
 }
 
 /* ──────────────────────────────────────────────
    MOBILE INPUT BRIDGE
-   Mirrors the hidden input value into handleTestKey
    ────────────────────────────────────────────── */
 (function setupMobileInput() {
   const mi = $("mobileInput");
@@ -1158,15 +1140,12 @@ function handleTestKey(key) {
   mi.addEventListener("input", (e) => {
     const current = mi.value;
     if (current.length > lastValue.length) {
-      // Characters added
       const added = current.slice(lastValue.length);
       for (const ch of added) handleTestKey(ch);
     } else if (current.length < lastValue.length) {
-      // Backspace
       handleTestKey("Backspace");
     }
     lastValue = current;
-    // Keep input manageable — prevent it from growing too long
     if (mi.value.length > 200) {
       mi.value = mi.value.slice(-100);
       lastValue = mi.value;
@@ -1175,12 +1154,10 @@ function handleTestKey(key) {
 
   mi.addEventListener("keydown", (e) => {
     if (e.key === "Backspace" && mi.value === "") {
-      // Backspace when input is empty
       handleTestKey("Backspace");
     }
   });
 
-  // Tap on arena or focus arena → focus mobile input
   ["arena", "focusArena"].forEach((id) => {
     const el = $(id);
     if (!el) return;
@@ -1192,7 +1169,6 @@ function handleTestKey(key) {
     });
   });
 
-  // Prevent arena from losing keyboard context on mobile
   document.addEventListener(
     "touchstart",
     (e) => {
@@ -1220,16 +1196,411 @@ $("retryBtn").addEventListener("click", () => {
   $("resultsOverlay").classList.add("hidden");
   resetTest();
 });
+
+/* ──────────────────────────────────────────────
+   SHARE AS IMAGE  ← NEW
+   ────────────────────────────────────────────── */
 $("shareBtn").addEventListener("click", () => {
+  generateShareImage();
+});
+
+function generateShareImage() {
   const wpm = $("resWpmBig").textContent;
   const acc = $("res-acc").textContent;
-  const text = `⌨ Just hit ${wpm} WPM with ${acc} accuracy on TYPEX!`;
-  if (navigator.clipboard) {
-    navigator.clipboard
-      .writeText(text)
-      .then(() => toast("Result copied!", "success"));
-  } else toast("Copy: " + text);
-});
+  const raw = $("res-raw").textContent;
+  const errors = $("res-errors").textContent;
+  const streak = $("res-streak").textContent;
+  const consist = $("res-consistency").textContent;
+  const grade = $("resultsGrade").textContent;
+
+  const isLight = document.body.classList.contains("light");
+
+  // Card dimensions — square
+  const W = 600;
+  const H = 600;
+  const canvas = document.createElement("canvas");
+  const DPR = 2; // retina
+  canvas.width = W * DPR;
+  canvas.height = H * DPR;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(DPR, DPR);
+
+  // ── Colours ──────────────────────────────────
+  const BG = isLight ? "#f5f2eb" : "#05080c";
+  const BORDER = isLight ? "#b5af9f" : "#1a2d42";
+  const BORDER2 = isLight ? "#9e9788" : "#253d58";
+  const ACID = isLight ? "#2e7d0a" : "#a8ff3e";
+  const CORAL = isLight ? "#b83232" : "#ff5d5d";
+  const TEXT_HI = isLight ? "#1c1208" : "#d8eaf8";
+  const TEXT_MID = isLight ? "#7a6d5c" : "#3f5870";
+  const TEXT_DIM = isLight ? "#a09880" : "#243545";
+
+  // ── Background ───────────────────────────────
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle grid
+  ctx.strokeStyle = isLight ? "rgba(46,125,10,0.06)" : "rgba(168,255,62,0.025)";
+  ctx.lineWidth = 1;
+  const GRID = 40;
+  for (let x = 0; x < W; x += GRID) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, H);
+    ctx.stroke();
+  }
+  for (let y = 0; y < H; y += GRID) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+  }
+
+  // Radial vignette
+  const vig = ctx.createRadialGradient(
+    W / 2,
+    H / 2,
+    W * 0.1,
+    W / 2,
+    H / 2,
+    W * 0.75,
+  );
+  vig.addColorStop(0, "rgba(0,0,0,0)");
+  vig.addColorStop(1, isLight ? "rgba(0,0,0,0.06)" : "rgba(0,0,0,0.6)");
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, W, H);
+
+  // ── Card outline ─────────────────────────────
+  const PAD = 32;
+  ctx.strokeStyle = isLight ? "rgba(46,125,10,0.3)" : "rgba(168,255,62,0.18)";
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, PAD, PAD, W - PAD * 2, H - PAD * 2, 12);
+  ctx.stroke();
+
+  // Top accent line + glow
+  const accentGrad = ctx.createLinearGradient(PAD, 0, W - PAD, 0);
+  accentGrad.addColorStop(0, "transparent");
+  accentGrad.addColorStop(0.35, ACID);
+  accentGrad.addColorStop(0.65, ACID);
+  accentGrad.addColorStop(1, "transparent");
+  ctx.shadowColor = ACID;
+  ctx.shadowBlur = 10;
+  ctx.strokeStyle = accentGrad;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(PAD + 12, PAD);
+  ctx.lineTo(W - PAD - 12, PAD);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // ── Section 1: LOGO BAR ───────────────────── y: PAD+18
+  const LOGO_Y = PAD + 38;
+  const LOGO_X = PAD + 24;
+
+  // TX badge
+  ctx.fillStyle = isLight ? "rgba(46,125,10,0.1)" : "rgba(168,255,62,0.07)";
+  clipPolygon(ctx, LOGO_X - 4, LOGO_Y - 22, 44, 28);
+  ctx.fill();
+  ctx.strokeStyle = isLight ? "rgba(46,125,10,0.4)" : "rgba(168,255,62,0.4)";
+  ctx.lineWidth = 1;
+  clipPolygon(ctx, LOGO_X - 4, LOGO_Y - 22, 44, 28);
+  ctx.stroke();
+
+  ctx.fillStyle = ACID;
+  ctx.font = "bold 12px 'JetBrains Mono', monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("TX", LOGO_X + 18, LOGO_Y - 8);
+
+  ctx.fillStyle = TEXT_HI;
+  ctx.font = "bold 15px 'Syne', sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText("TYPEX", LOGO_X + 48, LOGO_Y - 10);
+
+  ctx.fillStyle = TEXT_DIM;
+  ctx.font = "9px 'JetBrains Mono', monospace";
+  ctx.textBaseline = "middle";
+  ctx.fillText("v2.1  ·  TYPING SPEED RESULT", LOGO_X + 48, LOGO_Y + 7);
+
+  // Date top-right
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  ctx.fillStyle = TEXT_DIM;
+  ctx.font = "8px 'JetBrains Mono', monospace";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  ctx.fillText(dateStr, W - PAD - 24, LOGO_Y - 2);
+
+  // ── Divider 1 ────────────────────────────────
+  const DIV1_Y = PAD + 66;
+  ctx.strokeStyle = BORDER;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(PAD + 24, DIV1_Y);
+  ctx.lineTo(W - PAD - 24, DIV1_Y);
+  ctx.stroke();
+
+  // ── Section 2: WPM HERO + GRADE ──────────────
+  const HERO_Y = DIV1_Y + 88;
+
+  // Grade circle — left side
+  const GX = PAD + 80;
+  const GY = HERO_Y;
+  const GR = 52;
+
+  ctx.shadowColor = ACID;
+  ctx.shadowBlur = 28;
+  ctx.strokeStyle = isLight ? "rgba(46,125,10,0.4)" : "rgba(168,255,62,0.35)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(GX, GY, GR, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = isLight ? "rgba(46,125,10,0.06)" : "rgba(168,255,62,0.04)";
+  ctx.beginPath();
+  ctx.arc(GX, GY, GR, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = ACID;
+  ctx.font = "bold 68px 'VT323', monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.shadowColor = ACID;
+  ctx.shadowBlur = 20;
+  ctx.fillText(grade, GX, GY + 4);
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = TEXT_DIM;
+  ctx.font = "bold 8px 'Syne', sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText("GRADE", GX, GY + GR + 16);
+
+  // WPM number — right of grade
+  const WX = GX + GR + 28;
+  ctx.fillStyle = TEXT_HI;
+  ctx.font = "bold 96px 'VT323', monospace";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(wpm, WX, HERO_Y + 4);
+
+  const wpmTextW = ctx.measureText(wpm).width;
+  ctx.fillStyle = TEXT_MID;
+  ctx.font = "bold 10px 'Syne', sans-serif";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText("WPM", WX + wpmTextW + 6, HERO_Y + 14);
+  ctx.fillStyle = TEXT_DIM;
+  ctx.font = "8px 'Syne', sans-serif";
+  ctx.fillText("WORDS / MIN", WX + wpmTextW + 6, HERO_Y + 28);
+
+  // Mode + difficulty badge
+  const modeLabel = `${state.mode.toUpperCase()}  ·  ${state.difficulty.toUpperCase()}  ·  ${state.duration}s`;
+  ctx.fillStyle = isLight ? "rgba(46,125,10,0.1)" : "rgba(168,255,62,0.06)";
+  const badgeW = ctx.measureText(modeLabel).width + 24;
+  roundRect(ctx, WX, HERO_Y + 38, badgeW, 20, 10);
+  ctx.fill();
+  ctx.strokeStyle = isLight ? "rgba(46,125,10,0.25)" : "rgba(168,255,62,0.18)";
+  ctx.lineWidth = 1;
+  roundRect(ctx, WX, HERO_Y + 38, badgeW, 20, 10);
+  ctx.stroke();
+  ctx.fillStyle = ACID;
+  ctx.font = "bold 8px 'JetBrains Mono', monospace";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(modeLabel, WX + 12, HERO_Y + 48);
+
+  // ── Divider 2 ────────────────────────────────
+  const DIV2_Y = HERO_Y + 82;
+  ctx.strokeStyle = BORDER;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 5]);
+  ctx.beginPath();
+  ctx.moveTo(PAD + 24, DIV2_Y);
+  ctx.lineTo(W - PAD - 24, DIV2_Y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ── Section 3: STATS GRID (3×2) ──────────────
+  const STATS = [
+    { label: "ACCURACY", value: acc },
+    { label: "RAW WPM", value: raw },
+    { label: "ERRORS", value: errors, bad: true },
+    { label: "BEST STREAK", value: streak },
+    { label: "CONSISTENCY", value: consist },
+    { label: "DURATION", value: state.duration + "s" },
+  ];
+
+  const SCOLS = 3;
+  const SGAP = 8;
+  const SX0 = PAD + 24;
+  const SW = (W - PAD * 2 - 48 - SGAP * (SCOLS - 1)) / SCOLS;
+  const SH = 62;
+  const SY0 = DIV2_Y + 16;
+
+  STATS.forEach((s, i) => {
+    const col = i % SCOLS;
+    const row = Math.floor(i / SCOLS);
+    const sx = SX0 + col * (SW + SGAP);
+    const sy = SY0 + row * (SH + SGAP);
+
+    ctx.fillStyle = isLight ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)";
+    roundRect(ctx, sx, sy, SW, SH, 5);
+    ctx.fill();
+
+    ctx.strokeStyle = s.bad
+      ? isLight
+        ? "rgba(184,50,50,0.3)"
+        : "rgba(255,93,93,0.22)"
+      : BORDER;
+    ctx.lineWidth = 1;
+    roundRect(ctx, sx, sy, SW, SH, 5);
+    ctx.stroke();
+
+    ctx.fillStyle = s.bad ? CORAL : TEXT_HI;
+    ctx.font = "bold 30px 'VT323', monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(s.value, sx + SW / 2, sy + SH / 2 - 5);
+
+    ctx.fillStyle = TEXT_DIM;
+    ctx.font = "bold 7px 'Syne', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(s.label, sx + SW / 2, sy + SH - 9);
+  });
+
+  // ── Section 4: SPARKLINE ─────────────────────
+  const data = state.wpmHistory.map((d) => d.wpm);
+  const CHART_Y = SY0 + 2 * SH + SGAP + 14;
+  const CHART_H = H - PAD - 30 - CHART_Y;
+  const CHART_X = PAD + 24;
+  const CHART_W = W - PAD * 2 - 48;
+
+  if (CHART_H > 20) {
+    ctx.strokeStyle = BORDER;
+    ctx.lineWidth = 1;
+    roundRect(ctx, CHART_X, CHART_Y, CHART_W, CHART_H, 5);
+    ctx.stroke();
+
+    ctx.fillStyle = TEXT_DIM;
+    ctx.font = "bold 7px 'Syne', sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText("WPM OVER TIME", CHART_X + 10, CHART_Y + 13);
+
+    if (data.length >= 2) {
+      const max = Math.max(...data, 1);
+      const step = CHART_W / Math.max(data.length - 1, 1);
+      const gpad = 22;
+
+      const lg = ctx.createLinearGradient(
+        0,
+        CHART_Y + gpad,
+        0,
+        CHART_Y + CHART_H - 6,
+      );
+      lg.addColorStop(
+        0,
+        isLight ? "rgba(46,125,10,0.2)" : "rgba(168,255,62,0.18)",
+      );
+      lg.addColorStop(1, "rgba(0,0,0,0)");
+
+      ctx.beginPath();
+      data.forEach((v, i) => {
+        const x = CHART_X + i * step;
+        const y = CHART_Y + CHART_H - 6 - (v / max) * (CHART_H - gpad - 6);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.lineTo(CHART_X + (data.length - 1) * step, CHART_Y + CHART_H - 6);
+      ctx.lineTo(CHART_X, CHART_Y + CHART_H - 6);
+      ctx.closePath();
+      ctx.fillStyle = lg;
+      ctx.fill();
+
+      ctx.beginPath();
+      data.forEach((v, i) => {
+        const x = CHART_X + i * step;
+        const y = CHART_Y + CHART_H - 6 - (v / max) * (CHART_H - gpad - 6);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = ACID;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = ACID;
+      ctx.shadowBlur = 8;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      const lastV = data[data.length - 1];
+      const lastX = CHART_X + (data.length - 1) * step;
+      const lastY =
+        CHART_Y + CHART_H - 6 - (lastV / max) * (CHART_H - gpad - 6);
+      ctx.beginPath();
+      ctx.arc(lastX, lastY, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = ACID;
+      ctx.shadowColor = ACID;
+      ctx.shadowBlur = 10;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.fillStyle = TEXT_DIM;
+      ctx.font = "9px 'JetBrains Mono', monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(
+        "not enough data",
+        CHART_X + CHART_W / 2,
+        CHART_Y + CHART_H / 2,
+      );
+    }
+  }
+
+  // ── Footer watermark ─────────────────────────
+  ctx.fillStyle = TEXT_DIM;
+  ctx.font = "bold 8px 'Syne', sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText("typex.app  ·  github.com/cottidev", W / 2, H - PAD - 8);
+
+  // ── Download ─────────────────────────────────
+  canvas.toBlob((blob) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `typex-${wpm}wpm-${acc.replace("%", "pct")}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast("⬇ Result card saved!", "success");
+  }, "image/png");
+}
+
+/* ── Canvas helpers ── */
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function clipPolygon(ctx, x, y, w, h) {
+  const cut = 7;
+  ctx.beginPath();
+  ctx.moveTo(x + cut, y);
+  ctx.lineTo(x + w, y);
+  ctx.lineTo(x + w, y + h - cut);
+  ctx.lineTo(x + w - cut, y + h);
+  ctx.lineTo(x, y + h);
+  ctx.lineTo(x, y + cut);
+  ctx.closePath();
+}
 
 /* ──────────────────────────────────────────────
    RESULT CHART
@@ -1504,7 +1875,7 @@ document.addEventListener("keydown", (e) => {
   const inCustom = document.activeElement === $("customTextInput");
   const inMobile = document.activeElement === $("mobileInput");
   if (inTrain || inCustom) return;
-  if (inMobile) return; // handled by mobile bridge
+  if (inMobile) return;
 
   if (e.key === "Tab") {
     e.preventDefault();
@@ -1549,7 +1920,6 @@ function enterFocusMode() {
   focusActive = true;
   $("focusOverlay").classList.remove("hidden");
   document.body.style.overflow = "hidden";
-  // Sync focus words with main state
   renderFocusWords();
   syncFocusHUD();
   $("focusProgressBar").style.width = "0%";
@@ -1582,7 +1952,6 @@ function renderFocusWords() {
 }
 
 function updateFocusCharAt(index, correct) {
-  // Update just the typed char and advance cursor in focus display
   const span = $("focusWords").querySelector(`[data-findex="${index}"]`);
   if (!span) return;
   span.classList.remove("current", "correct", "wrong");
@@ -1592,14 +1961,12 @@ function updateFocusCharAt(index, correct) {
     next.classList.add("current");
     scrollFocusCursor(next);
   }
-  // Also clear stale "current" from any previous span
   const prevCurrent = $("focusWords").querySelector(
     `[data-findex="${index - 1}"]`,
   );
   if (prevCurrent) prevCurrent.classList.remove("current");
 }
 
-/* Full re-sync of focus chars from state — used after backspace and bulk ops */
 function syncFocusChars() {
   const display = $("focusWords");
   const spans = display.querySelectorAll(".char");
@@ -1613,7 +1980,6 @@ function syncFocusChars() {
       scrollFocusCursor(span);
     }
   });
-  // Update echo
   let start = state.currentIndex;
   while (start > 0 && state.chars[start - 1] !== " ") start--;
   $("focusEcho").textContent =
@@ -1634,7 +2000,6 @@ function syncFocusHUD() {
   $("focusErr").textContent = state.errors;
   $("focusStreak").textContent = state.streak;
 
-  // Timer ring
   const ring = $("focusTimerRing");
   const num = $("focusSec");
   const pct = state.timeLeft / state.duration;
@@ -1668,13 +2033,11 @@ function syncFocusHUD() {
       : 0;
   $("focusProgressBar").style.width = pctProg + "%";
 
-  // Echo
   let start = state.currentIndex;
   while (start > 0 && state.chars[start - 1] !== " ") start--;
   $("focusEcho").textContent =
     state.chars.slice(start, state.currentIndex).join("") || "";
 
-  // Focus arena active state
   const fa = $("focusArena");
   if (state.testRunning) fa.classList.add("active-typing");
   else fa.classList.remove("active-typing");
