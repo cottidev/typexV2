@@ -1693,6 +1693,61 @@ kbd {
   font-weight: 700;
 }
 
+/* ── Key Heatmap ── */
+.heatmap-card {
+  padding-bottom: 22px;
+}
+#heatmapCanvas {
+  width: 100%;
+  display: block;
+  border-radius: var(--r);
+}
+
+.heatmap-worst {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: rgba(255, 93, 93, 0.06);
+  border: 1px solid rgba(255, 93, 93, 0.2);
+  border-left: 3px solid var(--coral);
+  border-radius: var(--r);
+  animation: tabIn 0.25s ease;
+}
+.heatmap-worst.hidden {
+  display: none;
+}
+.heatmap-worst-badge {
+  font-family: var(--vt);
+  font-size: 1.6rem;
+  color: var(--coral);
+  line-height: 1;
+  width: 32px;
+  text-align: center;
+  flex-shrink: 0;
+  text-shadow: 0 0 12px rgba(255, 93, 93, 0.4);
+}
+.heatmap-worst-text {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text-mid);
+  line-height: 1.5;
+}
+.heatmap-worst-text strong {
+  color: var(--coral);
+}
+.heatmap-worst-text em {
+  color: var(--text);
+  font-style: normal;
+}
+
+body.light .heatmap-worst {
+  background: rgba(184, 50, 50, 0.05);
+  border-color: rgba(184, 50, 50, 0.2);
+  border-left-color: var(--coral);
+}
+
 .table-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -2355,6 +2410,250 @@ body.light .focus-exit {
   background: var(--surface);
   border-color: var(--border);
   color: var(--text-mid);
+}
+
+/* ══════════════════════════════════════
+   DAILY CHALLENGE TAB
+══════════════════════════════════════ */
+.daily-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 26px 0 20px;
+  flex-wrap: wrap;
+}
+.daily-hero-left {
+  flex: 1;
+}
+
+.daily-date-badge {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 2px;
+  color: var(--acid);
+  background: var(--acid-dim);
+  border: 1px solid rgba(168, 255, 62, 0.22);
+  padding: 3px 10px;
+  border-radius: 20px;
+  display: inline-block;
+  margin-bottom: 10px;
+}
+
+.daily-streak-wrap {
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  padding: 16px 28px;
+  box-shadow: var(--shadow-card);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+.daily-streak-wrap::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(168, 255, 62, 0.35),
+    transparent
+  );
+}
+.daily-streak-num {
+  font-family: var(--vt);
+  font-size: 3.2rem;
+  line-height: 1;
+  color: var(--acid);
+  text-shadow: var(--glow-acid);
+}
+.daily-streak-label {
+  font-family: var(--display);
+  font-size: 0.46rem;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  font-weight: 700;
+}
+
+/* Done banner */
+.daily-done-banner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 24px;
+  background: linear-gradient(
+    135deg,
+    rgba(168, 255, 62, 0.06),
+    rgba(168, 255, 62, 0.02)
+  );
+  border: 1px solid rgba(168, 255, 62, 0.25);
+  border-left: 3px solid var(--acid);
+  border-radius: var(--r2);
+  margin-bottom: 14px;
+  animation: tabIn 0.3s ease;
+}
+.daily-done-banner.hidden {
+  display: none;
+}
+.daily-done-grade {
+  font-family: var(--vt);
+  font-size: 4rem;
+  line-height: 1;
+  color: var(--acid);
+  text-shadow: var(--glow-acid);
+  flex-shrink: 0;
+  width: 60px;
+  text-align: center;
+}
+.daily-done-wpm {
+  font-family: var(--vt);
+  font-size: 2rem;
+  color: var(--text-hi);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.daily-done-meta {
+  font-size: 0.72rem;
+  color: var(--text-mid);
+  letter-spacing: 0.3px;
+}
+
+/* Prompt preview card */
+.daily-prompt-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border3);
+  border-radius: var(--r2);
+  padding: 16px 20px;
+  margin-bottom: 4px;
+  box-shadow: var(--shadow-card);
+}
+.daily-prompt-label {
+  font-family: var(--display);
+  font-size: 0.46rem;
+  letter-spacing: 2.5px;
+  color: var(--acid);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.daily-prompt-preview {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--text-mid);
+  line-height: 1.6;
+  max-height: 3.5em;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, black 75%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 75%, transparent 100%);
+  white-space: nowrap;
+}
+
+/* Daily history list */
+.daily-history-list {
+  padding: 4px 0;
+}
+.daily-history-empty {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  padding: 24px;
+}
+.daily-history-row {
+  display: grid;
+  grid-template-columns: 80px 1fr auto auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.72rem;
+  color: var(--text);
+  transition: background var(--ease);
+}
+.daily-history-row:last-child {
+  border-bottom: none;
+}
+.daily-history-row:hover {
+  background: rgba(168, 255, 62, 0.014);
+}
+.dhr-date {
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+}
+.dhr-wpm {
+  font-family: var(--vt);
+  font-size: 1.25rem;
+  color: var(--acid);
+  line-height: 1;
+}
+.dhr-acc {
+  color: var(--text-mid);
+  font-size: 0.68rem;
+}
+.dhr-grade {
+  font-family: var(--vt);
+  font-size: 1.1rem;
+  width: 26px;
+  text-align: center;
+}
+.dhr-grade.grade-s {
+  color: var(--acid);
+}
+.dhr-grade.grade-a {
+  color: var(--sky);
+}
+.dhr-grade.grade-b {
+  color: var(--gold);
+}
+.dhr-grade.grade-c,
+.dhr-grade.grade-d,
+.dhr-grade.grade-f {
+  color: var(--coral);
+}
+.dhr-streak {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+@media (max-width: 700px) {
+  .daily-hero {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .daily-streak-wrap {
+    width: 100%;
+  }
+  .daily-history-row {
+    grid-template-columns: 70px 1fr auto auto;
+  }
+  .dhr-streak {
+    display: none;
+  }
+}
+
+body.light .daily-date-badge {
+  background: rgba(46, 125, 10, 0.08);
+  border-color: rgba(46, 125, 10, 0.22);
+}
+body.light .daily-streak-wrap::before {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(46, 125, 10, 0.3),
+    transparent
+  );
+}
+body.light .daily-done-banner {
+  background: linear-gradient(135deg, rgba(46, 125, 10, 0.06), transparent);
+  border-color: rgba(46, 125, 10, 0.25);
+  border-left-color: var(--acid);
 }
 
 /* ══════════════════════════════════════
