@@ -453,8 +453,6 @@ const state = {
   trainStreak: 0,
 
   history: JSON.parse(localStorage.getItem("typex_history") || "[]"),
-
-  // Per-key heatmap: { 'a': { attempts: 12, errors: 2 }, ... }
   keyHeatmap: JSON.parse(localStorage.getItem("typex_heatmap") || "{}"),
 };
 
@@ -645,12 +643,8 @@ function updateTimerRing() {
 function drawLiveGraph() {
   const canvas = $("liveWpmCanvas");
   if (!canvas) return;
-
   const wrap = $("liveGraphWrap");
-
-  if (state.wpmHistory.length >= 2) {
-    wrap.classList.remove("hidden");
-  }
+  if (state.wpmHistory.length >= 2) wrap.classList.remove("hidden");
 
   const W = canvas.parentElement.clientWidth || 300;
   const H = parseInt(canvas.getAttribute("height")) || 48;
@@ -673,8 +667,8 @@ function drawLiveGraph() {
 
   ctx.beginPath();
   data.forEach((v, i) => {
-    const x = i * step;
-    const y = H - PAD - (v / max) * (H - PAD * 2);
+    const x = i * step,
+      y = H - PAD - (v / max) * (H - PAD * 2);
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
   ctx.lineTo((data.length - 1) * step, H);
@@ -685,8 +679,8 @@ function drawLiveGraph() {
 
   ctx.beginPath();
   data.forEach((v, i) => {
-    const x = i * step;
-    const y = H - PAD - (v / max) * (H - PAD * 2);
+    const x = i * step,
+      y = H - PAD - (v / max) * (H - PAD * 2);
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
   ctx.strokeStyle = "#a8ff3e";
@@ -699,7 +693,6 @@ function drawLiveGraph() {
   const lastV = data[data.length - 1];
   const lastX = (data.length - 1) * step;
   const lastY = H - PAD - (lastV / max) * (H - PAD * 2);
-
   ctx.beginPath();
   ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
   ctx.fillStyle = "#a8ff3e";
@@ -1017,7 +1010,6 @@ function endTest() {
     date: new Date().toISOString(),
   });
 
-  // Persist heatmap
   localStorage.setItem("typex_heatmap", JSON.stringify(state.keyHeatmap));
 }
 
@@ -1105,7 +1097,7 @@ function handleTestKey(key) {
   state.charResults[state.currentIndex] = correct;
   state.totalKeystrokes++;
 
-  // ── Heatmap tracking ──
+  // Heatmap tracking
   const hk = expected.toLowerCase();
   if (!state.keyHeatmap[hk]) state.keyHeatmap[hk] = { attempts: 0, errors: 0 };
   state.keyHeatmap[hk].attempts++;
@@ -1166,9 +1158,7 @@ function handleTestKey(key) {
   });
 
   mi.addEventListener("keydown", (e) => {
-    if (e.key === "Backspace" && mi.value === "") {
-      handleTestKey("Backspace");
-    }
+    if (e.key === "Backspace" && mi.value === "") handleTestKey("Backspace");
   });
 
   ["arena", "focusArena"].forEach((id) => {
@@ -1209,411 +1199,16 @@ $("retryBtn").addEventListener("click", () => {
   $("resultsOverlay").classList.add("hidden");
   resetTest();
 });
-
-/* ──────────────────────────────────────────────
-   SHARE AS IMAGE  ← NEW
-   ────────────────────────────────────────────── */
 $("shareBtn").addEventListener("click", () => {
-  generateShareImage();
-});
-
-function generateShareImage() {
   const wpm = $("resWpmBig").textContent;
   const acc = $("res-acc").textContent;
-  const raw = $("res-raw").textContent;
-  const errors = $("res-errors").textContent;
-  const streak = $("res-streak").textContent;
-  const consist = $("res-consistency").textContent;
-  const grade = $("resultsGrade").textContent;
-
-  const isLight = document.body.classList.contains("light");
-
-  // Card dimensions — square
-  const W = 600;
-  const H = 600;
-  const canvas = document.createElement("canvas");
-  const DPR = 2; // retina
-  canvas.width = W * DPR;
-  canvas.height = H * DPR;
-  const ctx = canvas.getContext("2d");
-  ctx.scale(DPR, DPR);
-
-  // ── Colours ──────────────────────────────────
-  const BG = isLight ? "#f5f2eb" : "#05080c";
-  const BORDER = isLight ? "#b5af9f" : "#1a2d42";
-  const BORDER2 = isLight ? "#9e9788" : "#253d58";
-  const ACID = isLight ? "#2e7d0a" : "#a8ff3e";
-  const CORAL = isLight ? "#b83232" : "#ff5d5d";
-  const TEXT_HI = isLight ? "#1c1208" : "#d8eaf8";
-  const TEXT_MID = isLight ? "#7a6d5c" : "#3f5870";
-  const TEXT_DIM = isLight ? "#a09880" : "#243545";
-
-  // ── Background ───────────────────────────────
-  ctx.fillStyle = BG;
-  ctx.fillRect(0, 0, W, H);
-
-  // Subtle grid
-  ctx.strokeStyle = isLight ? "rgba(46,125,10,0.06)" : "rgba(168,255,62,0.025)";
-  ctx.lineWidth = 1;
-  const GRID = 40;
-  for (let x = 0; x < W; x += GRID) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, H);
-    ctx.stroke();
-  }
-  for (let y = 0; y < H; y += GRID) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(W, y);
-    ctx.stroke();
-  }
-
-  // Radial vignette
-  const vig = ctx.createRadialGradient(
-    W / 2,
-    H / 2,
-    W * 0.1,
-    W / 2,
-    H / 2,
-    W * 0.75,
-  );
-  vig.addColorStop(0, "rgba(0,0,0,0)");
-  vig.addColorStop(1, isLight ? "rgba(0,0,0,0.06)" : "rgba(0,0,0,0.6)");
-  ctx.fillStyle = vig;
-  ctx.fillRect(0, 0, W, H);
-
-  // ── Card outline ─────────────────────────────
-  const PAD = 32;
-  ctx.strokeStyle = isLight ? "rgba(46,125,10,0.3)" : "rgba(168,255,62,0.18)";
-  ctx.lineWidth = 1.5;
-  roundRect(ctx, PAD, PAD, W - PAD * 2, H - PAD * 2, 12);
-  ctx.stroke();
-
-  // Top accent line + glow
-  const accentGrad = ctx.createLinearGradient(PAD, 0, W - PAD, 0);
-  accentGrad.addColorStop(0, "transparent");
-  accentGrad.addColorStop(0.35, ACID);
-  accentGrad.addColorStop(0.65, ACID);
-  accentGrad.addColorStop(1, "transparent");
-  ctx.shadowColor = ACID;
-  ctx.shadowBlur = 10;
-  ctx.strokeStyle = accentGrad;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(PAD + 12, PAD);
-  ctx.lineTo(W - PAD - 12, PAD);
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-
-  // ── Section 1: LOGO BAR ───────────────────── y: PAD+18
-  const LOGO_Y = PAD + 38;
-  const LOGO_X = PAD + 24;
-
-  // TX badge
-  ctx.fillStyle = isLight ? "rgba(46,125,10,0.1)" : "rgba(168,255,62,0.07)";
-  clipPolygon(ctx, LOGO_X - 4, LOGO_Y - 22, 44, 28);
-  ctx.fill();
-  ctx.strokeStyle = isLight ? "rgba(46,125,10,0.4)" : "rgba(168,255,62,0.4)";
-  ctx.lineWidth = 1;
-  clipPolygon(ctx, LOGO_X - 4, LOGO_Y - 22, 44, 28);
-  ctx.stroke();
-
-  ctx.fillStyle = ACID;
-  ctx.font = "bold 12px 'JetBrains Mono', monospace";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("TX", LOGO_X + 18, LOGO_Y - 8);
-
-  ctx.fillStyle = TEXT_HI;
-  ctx.font = "bold 15px 'Syne', sans-serif";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillText("TYPEX", LOGO_X + 48, LOGO_Y - 10);
-
-  ctx.fillStyle = TEXT_DIM;
-  ctx.font = "9px 'JetBrains Mono', monospace";
-  ctx.textBaseline = "middle";
-  ctx.fillText("v2.1  ·  TYPING SPEED RESULT", LOGO_X + 48, LOGO_Y + 7);
-
-  // Date top-right
-  const now = new Date();
-  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  ctx.fillStyle = TEXT_DIM;
-  ctx.font = "8px 'JetBrains Mono', monospace";
-  ctx.textAlign = "right";
-  ctx.textBaseline = "middle";
-  ctx.fillText(dateStr, W - PAD - 24, LOGO_Y - 2);
-
-  // ── Divider 1 ────────────────────────────────
-  const DIV1_Y = PAD + 66;
-  ctx.strokeStyle = BORDER;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(PAD + 24, DIV1_Y);
-  ctx.lineTo(W - PAD - 24, DIV1_Y);
-  ctx.stroke();
-
-  // ── Section 2: WPM HERO + GRADE ──────────────
-  const HERO_Y = DIV1_Y + 88;
-
-  // Grade circle — left side
-  const GX = PAD + 80;
-  const GY = HERO_Y;
-  const GR = 52;
-
-  ctx.shadowColor = ACID;
-  ctx.shadowBlur = 28;
-  ctx.strokeStyle = isLight ? "rgba(46,125,10,0.4)" : "rgba(168,255,62,0.35)";
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(GX, GY, GR, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-
-  ctx.fillStyle = isLight ? "rgba(46,125,10,0.06)" : "rgba(168,255,62,0.04)";
-  ctx.beginPath();
-  ctx.arc(GX, GY, GR, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = ACID;
-  ctx.font = "bold 68px 'VT323', monospace";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.shadowColor = ACID;
-  ctx.shadowBlur = 20;
-  ctx.fillText(grade, GX, GY + 4);
-  ctx.shadowBlur = 0;
-
-  ctx.fillStyle = TEXT_DIM;
-  ctx.font = "bold 8px 'Syne', sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillText("GRADE", GX, GY + GR + 16);
-
-  // WPM number — right of grade
-  const WX = GX + GR + 28;
-  ctx.fillStyle = TEXT_HI;
-  ctx.font = "bold 96px 'VT323', monospace";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillText(wpm, WX, HERO_Y + 4);
-
-  const wpmTextW = ctx.measureText(wpm).width;
-  ctx.fillStyle = TEXT_MID;
-  ctx.font = "bold 10px 'Syne', sans-serif";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillText("WPM", WX + wpmTextW + 6, HERO_Y + 14);
-  ctx.fillStyle = TEXT_DIM;
-  ctx.font = "8px 'Syne', sans-serif";
-  ctx.fillText("WORDS / MIN", WX + wpmTextW + 6, HERO_Y + 28);
-
-  // Mode + difficulty badge
-  const modeLabel = `${state.mode.toUpperCase()}  ·  ${state.difficulty.toUpperCase()}  ·  ${state.duration}s`;
-  ctx.fillStyle = isLight ? "rgba(46,125,10,0.1)" : "rgba(168,255,62,0.06)";
-  const badgeW = ctx.measureText(modeLabel).width + 24;
-  roundRect(ctx, WX, HERO_Y + 38, badgeW, 20, 10);
-  ctx.fill();
-  ctx.strokeStyle = isLight ? "rgba(46,125,10,0.25)" : "rgba(168,255,62,0.18)";
-  ctx.lineWidth = 1;
-  roundRect(ctx, WX, HERO_Y + 38, badgeW, 20, 10);
-  ctx.stroke();
-  ctx.fillStyle = ACID;
-  ctx.font = "bold 8px 'JetBrains Mono', monospace";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillText(modeLabel, WX + 12, HERO_Y + 48);
-
-  // ── Divider 2 ────────────────────────────────
-  const DIV2_Y = HERO_Y + 82;
-  ctx.strokeStyle = BORDER;
-  ctx.lineWidth = 1;
-  ctx.setLineDash([3, 5]);
-  ctx.beginPath();
-  ctx.moveTo(PAD + 24, DIV2_Y);
-  ctx.lineTo(W - PAD - 24, DIV2_Y);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // ── Section 3: STATS GRID (3×2) ──────────────
-  const STATS = [
-    { label: "ACCURACY", value: acc },
-    { label: "RAW WPM", value: raw },
-    { label: "ERRORS", value: errors, bad: true },
-    { label: "BEST STREAK", value: streak },
-    { label: "CONSISTENCY", value: consist },
-    { label: "DURATION", value: state.duration + "s" },
-  ];
-
-  const SCOLS = 3;
-  const SGAP = 8;
-  const SX0 = PAD + 24;
-  const SW = (W - PAD * 2 - 48 - SGAP * (SCOLS - 1)) / SCOLS;
-  const SH = 62;
-  const SY0 = DIV2_Y + 16;
-
-  STATS.forEach((s, i) => {
-    const col = i % SCOLS;
-    const row = Math.floor(i / SCOLS);
-    const sx = SX0 + col * (SW + SGAP);
-    const sy = SY0 + row * (SH + SGAP);
-
-    ctx.fillStyle = isLight ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)";
-    roundRect(ctx, sx, sy, SW, SH, 5);
-    ctx.fill();
-
-    ctx.strokeStyle = s.bad
-      ? isLight
-        ? "rgba(184,50,50,0.3)"
-        : "rgba(255,93,93,0.22)"
-      : BORDER;
-    ctx.lineWidth = 1;
-    roundRect(ctx, sx, sy, SW, SH, 5);
-    ctx.stroke();
-
-    ctx.fillStyle = s.bad ? CORAL : TEXT_HI;
-    ctx.font = "bold 30px 'VT323', monospace";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(s.value, sx + SW / 2, sy + SH / 2 - 5);
-
-    ctx.fillStyle = TEXT_DIM;
-    ctx.font = "bold 7px 'Syne', sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "alphabetic";
-    ctx.fillText(s.label, sx + SW / 2, sy + SH - 9);
-  });
-
-  // ── Section 4: SPARKLINE ─────────────────────
-  const data = state.wpmHistory.map((d) => d.wpm);
-  const CHART_Y = SY0 + 2 * SH + SGAP + 14;
-  const CHART_H = H - PAD - 30 - CHART_Y;
-  const CHART_X = PAD + 24;
-  const CHART_W = W - PAD * 2 - 48;
-
-  if (CHART_H > 20) {
-    ctx.strokeStyle = BORDER;
-    ctx.lineWidth = 1;
-    roundRect(ctx, CHART_X, CHART_Y, CHART_W, CHART_H, 5);
-    ctx.stroke();
-
-    ctx.fillStyle = TEXT_DIM;
-    ctx.font = "bold 7px 'Syne', sans-serif";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "alphabetic";
-    ctx.fillText("WPM OVER TIME", CHART_X + 10, CHART_Y + 13);
-
-    if (data.length >= 2) {
-      const max = Math.max(...data, 1);
-      const step = CHART_W / Math.max(data.length - 1, 1);
-      const gpad = 22;
-
-      const lg = ctx.createLinearGradient(
-        0,
-        CHART_Y + gpad,
-        0,
-        CHART_Y + CHART_H - 6,
-      );
-      lg.addColorStop(
-        0,
-        isLight ? "rgba(46,125,10,0.2)" : "rgba(168,255,62,0.18)",
-      );
-      lg.addColorStop(1, "rgba(0,0,0,0)");
-
-      ctx.beginPath();
-      data.forEach((v, i) => {
-        const x = CHART_X + i * step;
-        const y = CHART_Y + CHART_H - 6 - (v / max) * (CHART_H - gpad - 6);
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      });
-      ctx.lineTo(CHART_X + (data.length - 1) * step, CHART_Y + CHART_H - 6);
-      ctx.lineTo(CHART_X, CHART_Y + CHART_H - 6);
-      ctx.closePath();
-      ctx.fillStyle = lg;
-      ctx.fill();
-
-      ctx.beginPath();
-      data.forEach((v, i) => {
-        const x = CHART_X + i * step;
-        const y = CHART_Y + CHART_H - 6 - (v / max) * (CHART_H - gpad - 6);
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      });
-      ctx.strokeStyle = ACID;
-      ctx.lineWidth = 2;
-      ctx.shadowColor = ACID;
-      ctx.shadowBlur = 8;
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-
-      const lastV = data[data.length - 1];
-      const lastX = CHART_X + (data.length - 1) * step;
-      const lastY =
-        CHART_Y + CHART_H - 6 - (lastV / max) * (CHART_H - gpad - 6);
-      ctx.beginPath();
-      ctx.arc(lastX, lastY, 3.5, 0, Math.PI * 2);
-      ctx.fillStyle = ACID;
-      ctx.shadowColor = ACID;
-      ctx.shadowBlur = 10;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    } else {
-      ctx.fillStyle = TEXT_DIM;
-      ctx.font = "9px 'JetBrains Mono', monospace";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(
-        "not enough data",
-        CHART_X + CHART_W / 2,
-        CHART_Y + CHART_H / 2,
-      );
-    }
-  }
-
-  // ── Footer watermark ─────────────────────────
-  ctx.fillStyle = TEXT_DIM;
-  ctx.font = "bold 8px 'Syne', sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillText("typex.app  ·  github.com/cottidev", W / 2, H - PAD - 8);
-
-  // ── Download ─────────────────────────────────
-  canvas.toBlob((blob) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `typex-${wpm}wpm-${acc.replace("%", "pct")}.png`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast("⬇ Result card saved!", "success");
-  }, "image/png");
-}
-
-/* ── Canvas helpers ── */
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
-function clipPolygon(ctx, x, y, w, h) {
-  const cut = 7;
-  ctx.beginPath();
-  ctx.moveTo(x + cut, y);
-  ctx.lineTo(x + w, y);
-  ctx.lineTo(x + w, y + h - cut);
-  ctx.lineTo(x + w - cut, y + h);
-  ctx.lineTo(x, y + h);
-  ctx.lineTo(x, y + cut);
-  ctx.closePath();
-}
+  const text = `⌨ Just hit ${wpm} WPM with ${acc} accuracy on TYPEX!`;
+  if (navigator.clipboard) {
+    navigator.clipboard
+      .writeText(text)
+      .then(() => toast("Result copied!", "success"));
+  } else toast("Copy: " + text);
+});
 
 /* ──────────────────────────────────────────────
    RESULT CHART
@@ -1667,11 +1262,14 @@ function drawResultChart() {
 }
 
 /* ──────────────────────────────────────────────
-   TRAINING MODULE
+   TRAINING MODULES
+   ── FIX: clicking anywhere on the card launches the module
    ────────────────────────────────────────────── */
-document.querySelectorAll(".module-btn").forEach((btn) => {
-  btn.addEventListener("click", (e) => {
-    startTraining(e.target.closest(".module-card").dataset.module);
+document.querySelectorAll(".module-card").forEach((card) => {
+  card.addEventListener("click", (e) => {
+    // Ignore clicks directly on the exit/other buttons inside the arena
+    if (e.target.closest("#trainArena")) return;
+    startTraining(card.dataset.module);
   });
 });
 
@@ -1872,8 +1470,7 @@ function drawHeatmap() {
   const DPR = window.devicePixelRatio || 1;
   const W = canvas.parentElement.clientWidth || 860;
 
-  // Layout constants — fixed proportions that always fit
-  const PAD_X = 32; // left/right margin inside the canvas — keeps keys away from card edges
+  const PAD_X = 32;
   const KEY_GAP = 6;
   const ROWS = [
     ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
@@ -1882,20 +1479,17 @@ function drawHeatmap() {
   ];
 
   const NUM_KEYS = 10;
-  // Compute key width, then recompute total and derive exact centre offset
   const KEY_W = Math.round(
     (W - 2 * PAD_X - KEY_GAP * (NUM_KEYS - 1)) / NUM_KEYS,
   );
   const KEY_H = Math.round(KEY_W * 0.82);
   const TOTAL_KBD_W = NUM_KEYS * KEY_W + (NUM_KEYS - 1) * KEY_GAP;
-  // Perfectly centre: ignore PAD_X, just split remaining space equally
   const KBD_X = PAD_X;
   const KEY_RADIUS = 5;
   const LEG_H = 8;
   const LEG_MARGIN = 14;
   const LABEL_H = 16;
-
-  const PAD_Y = 16; // top/bottom padding
+  const PAD_Y = 16;
   const H =
     PAD_Y +
     ROWS.length * KEY_H +
@@ -1914,8 +1508,6 @@ function drawHeatmap() {
   ctx.clearRect(0, 0, W, H);
 
   const hm = state.keyHeatmap;
-
-  // Find max error rate for colour normalisation
   let maxErr = 0;
   Object.values(hm).forEach(({ attempts, errors }) => {
     if (attempts >= 3) maxErr = Math.max(maxErr, errors / attempts);
@@ -1936,16 +1528,13 @@ function drawHeatmap() {
       }
 
       let fillColor, borderColor, textColor;
-
       if (attempts === 0) {
-        // Untyped — solid light grey key on light, near-invisible on dark
         fillColor = isLight ? "#dedad0" : "rgba(255,255,255,0.03)";
         borderColor = isLight ? "#c4bfb2" : "rgba(255,255,255,0.08)";
         textColor = isLight ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.18)";
       } else {
         const t = Math.min(errRate / maxErr, 1);
         if (t < 0.15) {
-          // Accurate — solid green-tinted key
           fillColor = isLight
             ? "#c8e6b0"
             : `rgba(168,255,62,${0.06 + t * 0.35})`;
@@ -1954,7 +1543,6 @@ function drawHeatmap() {
             : `rgba(168,255,62,${0.25 + t * 0.4})`;
           textColor = isLight ? "#2d5a0e" : "#a8ff3e";
         } else if (t < 0.5) {
-          // Mid — solid amber-tinted key
           fillColor = isLight
             ? "#f0dfa0"
             : `rgba(251,191,36,${0.07 + t * 0.18})`;
@@ -1963,7 +1551,6 @@ function drawHeatmap() {
             : `rgba(251,191,36,${0.25 + t * 0.3})`;
           textColor = isLight ? "#6b4800" : "#fbbf24";
         } else {
-          // Error-prone — solid rose-tinted key
           fillColor = isLight ? "#f5bebe" : `rgba(255,93,93,${0.1 + t * 0.25})`;
           borderColor = isLight
             ? "#d07070"
@@ -1972,7 +1559,6 @@ function drawHeatmap() {
         }
       }
 
-      // Key background + border
       ctx.fillStyle = fillColor;
       ctx.beginPath();
       ctx.roundRect(x, y, KEY_W, KEY_H, KEY_RADIUS);
@@ -1988,14 +1574,12 @@ function drawHeatmap() {
       const labelY = hasData ? y + KEY_H * 0.36 : y + KEY_H * 0.5;
       const subY = y + KEY_H * 0.7;
 
-      // Key letter
       ctx.fillStyle = textColor;
       ctx.font = `600 ${Math.max(10, Math.round(KEY_W * 0.33))}px 'JetBrains Mono', monospace`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(key.toUpperCase(), cx, labelY);
 
-      // Error % (only when enough data)
       if (hasData) {
         const pct = Math.round(errRate * 100);
         ctx.globalAlpha = 0.7;
@@ -2006,7 +1590,6 @@ function drawHeatmap() {
     });
   });
 
-  // ── Legend bar ──────────────────────────────
   const LEG_Y =
     PAD_Y + ROWS.length * KEY_H + (ROWS.length - 1) * KEY_GAP + LEG_MARGIN;
   const LEG_X = KBD_X;
@@ -2031,7 +1614,6 @@ function drawHeatmap() {
   ctx.textAlign = "right";
   ctx.fillText("error-prone", LEG_X + LEG_W, LEG_Y + LEG_H + 4);
 
-  // ── Worst-key callout ───────────────────────
   const worstKey = findWorstKey();
   const wrapEl = $("heatmapWorstKey");
   if (worstKey && wrapEl) {
@@ -2051,8 +1633,8 @@ function drawHeatmap() {
 
 function findWorstKey() {
   const hm = state.keyHeatmap;
-  let worst = null;
-  let worstRate = 0;
+  let worst = null,
+    worstRate = 0;
   const MIN_ATTEMPTS = 5;
   for (const [key, { attempts, errors }] of Object.entries(hm)) {
     if (attempts < MIN_ATTEMPTS) continue;
@@ -2097,7 +1679,6 @@ const KEY_TIPS = {
   ".": "right ring down",
   "/": "right pinky down",
 };
-
 function getKeyTip(key) {
   return KEY_TIPS[key.toLowerCase()] || "practice this key";
 }
@@ -2356,25 +1937,20 @@ $("focusExitBtn").addEventListener("click", exitFocusMode);
 /* ──────────────────────────────────────────────
    DAILY CHALLENGE
    ────────────────────────────────────────────── */
-
-/* ── Deterministic date-seeded text picker ── */
 function getDailyDateStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function seededRandom(seed) {
-  // Simple LCG so the same date always picks the same text
   let h = 0;
-  for (let i = 0; i < seed.length; i++) {
+  for (let i = 0; i < seed.length; i++)
     h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0;
-  }
   h = h >>> 0;
   return (h % 1000) / 1000;
 }
 
 function getDailyText(dateStr) {
-  // Build a dedicated daily pool of longer, varied passages
   const DAILY_POOL = [
     "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump!",
     "Programming is the art of telling another human what one wants the computer to do. Any fool can write code that a computer can understand. Good programmers write code that humans can understand.",
@@ -2407,14 +1983,11 @@ function getDailyText(dateStr) {
     "type Result<T, E> = { ok: true; value: T } | { ok: false; error: E }; function unwrap<T>(r: Result<T, Error>): T { if (r.ok) return r.value; throw r.error; }",
     "The implementation of asynchronous programming paradigms necessitates a comprehensive understanding of event-driven architectures and non-blocking I/O operations.",
   ];
-
   const idx = Math.floor(seededRandom(dateStr) * DAILY_POOL.length);
   return DAILY_POOL[idx];
 }
 
-/* ── Daily persistent state ── */
 const DAILY_KEY = "typex_daily";
-
 function loadDailyStore() {
   try {
     return JSON.parse(localStorage.getItem(DAILY_KEY) || "{}");
@@ -2422,34 +1995,27 @@ function loadDailyStore() {
     return {};
   }
 }
-
 function saveDailyStore(data) {
   localStorage.setItem(DAILY_KEY, JSON.stringify(data));
 }
 
-/* Streak logic: count consecutive days including today */
 function calcDailyStreak(history) {
   if (!history || history.length === 0) return 0;
-  // history is newest-first, each entry has .date (YYYY-MM-DD)
   const sorted = [...history].sort((a, b) => b.date.localeCompare(a.date));
   const today = getDailyDateStr();
-  let streak = 0;
-  let expected = today;
+  let streak = 0,
+    expected = today;
   for (const entry of sorted) {
     if (entry.date === expected) {
       streak++;
-      // Step back one day
       const d = new Date(expected + "T12:00:00");
       d.setDate(d.getDate() - 1);
       expected = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    } else {
-      break;
-    }
+    } else break;
   }
   return streak;
 }
 
-/* ── Daily typing engine state ── */
 const dState = {
   chars: [],
   charResults: [],
@@ -2469,8 +2035,8 @@ const dState = {
 };
 
 function dailyTimerRingUpdate() {
-  const ring = $("dailyTimerRing");
-  const num = $("dailyTimerDisplay");
+  const ring = $("dailyTimerRing"),
+    num = $("dailyTimerDisplay");
   if (!ring || !num) return;
   const pct = dState.timeLeft / dState.duration;
   ring.style.strokeDashoffset = 113.1 * (1 - pct);
@@ -2506,7 +2072,6 @@ function updateDailyHUD() {
   $("dailyErrDisplay").textContent = dState.errors;
   $("dailyStreakDisplay").textContent = dState.streak;
   dailyTimerRingUpdate();
-
   if (dState.started && dState.startTime) {
     const elapsed = Math.max((Date.now() - dState.startTime) / 1000, 0.1);
     const wpm = calcWPM(dState.correctKeystrokes, elapsed);
@@ -2520,7 +2085,6 @@ function updateDailyHUD() {
     $("dailyWpmDisplay").textContent = "—";
     $("dailyAccDisplay").textContent = "—";
   }
-
   const pct =
     dState.chars.length > 0
       ? Math.min((dState.currentIndex / dState.chars.length) * 100, 100)
@@ -2537,13 +2101,11 @@ function startDailyTest() {
   $("dailyArenaHint").style.display = "none";
   $("dailyStartBtn").textContent = "■ RUNNING";
   $("dailyArena").classList.add("active-typing");
-
   if (isMobile()) {
     const mi = $("mobileInput");
     mi.style.pointerEvents = "auto";
     mi.focus({ preventScroll: true });
   }
-
   dState.timer = setInterval(() => {
     dState.timeLeft--;
     const elapsed = (Date.now() - dState.startTime) / 1000;
@@ -2575,10 +2137,8 @@ function endDailyTest() {
   const grade = gradeWPM(wpm, acc);
   const today = getDailyDateStr();
 
-  // Save to daily store
   const store = loadDailyStore();
   if (!store.history) store.history = [];
-  // Only save once per day — replace if already exists (re-attempt guard)
   store.history = store.history.filter((e) => e.date !== today);
   store.history.unshift({
     date: today,
@@ -2591,26 +2151,20 @@ function endDailyTest() {
   if (store.history.length > 60) store.history.length = 60;
   saveDailyStore(store);
 
-  // Show done banner, hide arena
   $("dailyChallengeArena").style.display = "none";
-  const banner = $("dailyDoneBanner");
   $("dailyDoneGrade").textContent = grade;
   $("dailyDoneWpm").textContent = wpm + " WPM";
   $("dailyDoneMeta").textContent =
     `${acc}% accuracy · ${dState.errors} errors · Come back tomorrow!`;
-  banner.classList.remove("hidden");
+  $("dailyDoneBanner").classList.remove("hidden");
 
-  // Update streak display
-  const streak = calcDailyStreak(store.history);
-  $("dailyStreakNum").textContent = streak;
-
+  $("dailyStreakNum").textContent = calcDailyStreak(store.history);
   renderDailyHistory(store.history);
   toast(`Daily done! ${wpm} WPM — Grade ${grade}`, "success");
 }
 
 function handleDailyKey(key) {
   if (!$("tab-daily").classList.contains("active")) return;
-  // Don't intercept if a results overlay is showing
   if (!$("resultsOverlay").classList.contains("hidden")) return;
 
   if (key === "Backspace") {
@@ -2637,7 +2191,6 @@ function handleDailyKey(key) {
     );
     if (next) next.classList.remove("current");
     updateDailyHUD();
-    // echo
     let start = dState.currentIndex;
     while (start > 0 && dState.chars[start - 1] !== " ") start--;
     $("dailyWordEcho").textContent =
@@ -2655,7 +2208,6 @@ function handleDailyKey(key) {
   const correct = key === expected;
   dState.charResults[dState.currentIndex] = correct;
   dState.totalKeystrokes++;
-
   if (correct) {
     dState.correctKeystrokes++;
     dState.streak++;
@@ -2669,7 +2221,6 @@ function handleDailyKey(key) {
     }
   }
 
-  // Update display char
   const span = $("dailyWordsDisplay").querySelector(
     `[data-di="${dState.currentIndex}"]`,
   );
@@ -2690,24 +2241,18 @@ function handleDailyKey(key) {
   );
   if (nextSpan) {
     nextSpan.classList.add("current");
-    // scroll
     const display = $("dailyWordsDisplay");
     const elBottom = nextSpan.offsetTop + nextSpan.offsetHeight;
-    if (elBottom > display.scrollTop + display.clientHeight) {
+    if (elBottom > display.scrollTop + display.clientHeight)
       display.scrollTop = nextSpan.offsetTop - display.clientHeight / 2;
-    }
   }
 
   dState.currentIndex++;
   updateDailyHUD();
-
-  // word echo
   let start = dState.currentIndex;
   while (start > 0 && dState.chars[start - 1] !== " ") start--;
   $("dailyWordEcho").textContent =
     dState.chars.slice(start, dState.currentIndex).join("") || "";
-
-  // Auto-finish if all chars typed before timer ends
   if (dState.currentIndex >= dState.chars.length) endDailyTest();
 }
 
@@ -2740,17 +2285,12 @@ function renderDailyChallenge() {
   const text = getDailyText(today);
   const streak = calcDailyStreak(store.history || []);
 
-  // Date badge + streak
   $("dailyDateBadge").textContent = today;
   $("dailyStreakNum").textContent = streak;
-
-  // Show text preview
   $("dailyPromptPreview").textContent = text;
 
-  // Check if already completed today
   const todayEntry = (store.history || []).find((e) => e.date === today);
   if (todayEntry) {
-    // Show done state
     $("dailyChallengeArena").style.display = "none";
     $("dailyDoneGrade").textContent = todayEntry.grade || "—";
     $("dailyDoneWpm").textContent = todayEntry.wpm + " WPM";
@@ -2758,11 +2298,8 @@ function renderDailyChallenge() {
       `${todayEntry.acc}% accuracy · ${todayEntry.errors} errors · Come back tomorrow!`;
     $("dailyDoneBanner").classList.remove("hidden");
   } else {
-    // Fresh — set up arena
     $("dailyChallengeArena").style.display = "";
     $("dailyDoneBanner").classList.add("hidden");
-
-    // Reset dState
     Object.assign(dState, {
       chars: text.split(""),
       charResults: new Array(text.length).fill(null),
@@ -2780,7 +2317,6 @@ function renderDailyChallenge() {
       started: false,
     });
     clearInterval(dState.timer);
-
     renderDailyWords();
     updateDailyHUD();
     $("dailyArenaHint").style.display = "";
@@ -2793,16 +2329,12 @@ function renderDailyChallenge() {
     $("dailyTimerRing").classList.remove("ring-warn");
     $("dailyTimerDisplay").classList.remove("warn");
   }
-
   renderDailyHistory(store.history || []);
 }
 
-// Wire start button
 $("dailyStartBtn").addEventListener("click", () => {
   if (!dState.started) startDailyTest();
 });
-
-// Wire daily arena click (mobile keyboard)
 $("dailyArena").addEventListener("click", () => {
   if (isMobile() && dState.running) {
     const mi = $("mobileInput");
@@ -2811,7 +2343,6 @@ $("dailyArena").addEventListener("click", () => {
   }
 });
 
-// Hook daily key handler into global keydown
 document.addEventListener(
   "keydown",
   (e) => {
@@ -2819,19 +2350,15 @@ document.addEventListener(
     const inTrain = document.activeElement === $("trainInput");
     const inCustom = document.activeElement === $("customTextInput");
     const inMobile = document.activeElement === $("mobileInput");
-    if (inTrain || inCustom) return;
-    if (inMobile) return;
+    if (inTrain || inCustom || inMobile) return;
     const tag = document.activeElement?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON") return;
     handleDailyKey(e.key);
     if (e.key === "Backspace" || e.key === " ") e.preventDefault();
   },
   true,
-); // capture phase so it fires before global handler
+);
 
-// Hook daily into mobile input bridge
-const _origMobileHandler = null; // mobile bridge already dispatches to handleTestKey
-// Patch: if daily tab active, re-route mobile input to handleDailyKey
 (function patchMobileForDaily() {
   const mi = $("mobileInput");
   if (!mi) return;
@@ -2854,7 +2381,7 @@ const _origMobileHandler = null; // mobile bridge already dispatches to handleTe
       }
     },
     true,
-  ); // capture — fires before the main bridge listener
+  );
 })();
 
 /* ──────────────────────────────────────────────
